@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   devIndicators: { position: "bottom-right" },
-  serverExternalPackages: ["@prisma/client", "pg"],
+  serverExternalPackages: ["@prisma/client", "pg", "bullmq", "ioredis"],
   turbopack: {
     rules: {
       "*.css": {

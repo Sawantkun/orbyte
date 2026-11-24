@@ -2,7 +2,7 @@
 
 **Create. Connect. Organize.** — an intelligent workspace that connects AI workflows, automates creative processes, and organizes everything AI creates.
 
-> Status: **Milestone 2 (Workflow Studio)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> Status: **Milestone 3 (Execution engine)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Requirements
 - Node.js ≥ 22, pnpm 11
@@ -17,12 +17,16 @@ createdb orbyte && createdb orbyte_test
 pnpm db:migrate               # apply migrations
 pnpm db:seed                  # optional: demo@orbyte.dev / orbyte-demo-password
 pnpm dev                      # http://localhost:3000
+pnpm worker                   # in a second terminal: runs workflow executions
 ```
+
+Running AI nodes needs `OPENAI_API_KEY` in `.env`. Without it, AI nodes fail with a clear "OpenAI isn't configured" error; everything else (inputs, conditions, transforms, HTTP, outputs) runs.
 
 ## Scripts
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Dev server (Turbopack) |
+| `pnpm worker` / `worker:start` | Execution worker (watch mode / production) |
 | `pnpm typecheck` | Generate route types + `tsc --noEmit` |
 | `pnpm lint` | ESLint |
 | `pnpm test` | Vitest unit + integration (uses the `*_test` database) |

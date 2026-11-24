@@ -136,6 +136,7 @@ test("list page settles without refetch loops", async ({ page }) => {
     if (new URL(r.url()).pathname === "/workflows") requests++;
   });
   await page.goto("/workflows");
+  await page.waitForLoadState("networkidle");
   await page.waitForTimeout(1500);
   expect(requests).toBeLessThanOrEqual(2);
   requests = 0;
@@ -146,6 +147,7 @@ test("list page settles without refetch loops", async ({ page }) => {
 
 test("list: search, duplicate, delete with confirmation", async ({ page }) => {
   await page.goto("/workflows");
+  await page.waitForLoadState("networkidle"); // let React hydrate before typing
   await page.getByLabel("Search workflows").fill("versioned");
   await expect(page.getByRole("link", { name: "Versioned" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Launch copy" })).toHaveCount(0);

@@ -48,3 +48,15 @@ export type CreateWorkflowInput = z.infer<typeof createWorkflowSchema>;
 export type UpdateWorkflowInput = z.infer<typeof updateWorkflowSchema>;
 export type ListWorkflowsQuery = z.infer<typeof listWorkflowsQuery>;
 export type PromptTemplateInput = z.infer<typeof promptTemplateSchema>;
+
+export const executeWorkflowSchema = z.object({
+  inputs: z.record(z.string(), z.unknown()).default({}),
+  idempotencyKey: z.string().trim().min(8).max(100).optional(),
+});
+
+export const listExecutionsQuery = z.object({
+  status: z.enum(["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]).optional(),
+  workflowId: z.string().max(40).optional(),
+  cursor: z.string().max(40).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});

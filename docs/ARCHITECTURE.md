@@ -23,7 +23,7 @@ This document is the source of truth for how Orbyte is built. Decisions with rea
 ```
 
 * **Web app** (Next.js 16 App Router): UI, API, auth, and all *definition* management. It never executes workflow nodes.
-* **Worker** (Milestone 3): a separate Node process consuming BullMQ jobs. Executes validated workflow versions, calls AI providers, writes assets. Shares `src/server` and `src/lib` code with the web app but runs independently, so it can be scaled or extracted later.
+* **Worker** (`worker/index.ts`): a separate Node process consuming BullMQ jobs. Executes validated workflow versions, calls AI providers, writes assets. Shares `src/server` and `src/lib` code with the web app but runs independently, so it can be scaled or extracted later.
 * **PostgreSQL**: all metadata. **Redis**: queue + (later) rate-limit storage. **Object storage**: all binary content.
 
 Modular monolith, not microservices: one repo, one schema, clear module boundaries that can be split later.
@@ -143,13 +143,31 @@ Zustand store per editor instance (`components/studio/store.ts`) holds nodes/edg
 
 ### 6.4 Execution (Milestone 3)
 
-1. **Submit**: `POST /api/workflows/:id/execute` validates inputs against the version's `inputSchema`, creates `WorkflowExecution(PENDING)` + `NodeExecution(PENDING)` rows in one transaction, and enqueues `{ executionId }` with `jobId = executionId` (BullMQ dedupes).
-2. **Worker**: loads the immutable version, re-validates it, topologically sorts it, and runs ready nodes concurrently up to a per-execution limit. Each node: mark RUNNING → resolve `{{references}}` → run handler with an `AbortSignal` (timeout + cancellation) → persist output/usage → COMPLETED/FAILED.
-3. **Branches**: a Condition marks nodes reachable only through the untaken handle `SKIPPED`.
-4. **Retries**: per-node policy for retryable errors (429/5xx/timeouts); each attempt is its own `NodeExecution` row.
-5. **Cancellation**: `cancelRequestedAt` is checked between nodes; in-flight provider calls are aborted.
-6. **Logs**: structured entries passed through a secret redactor before persistence.
-7. **Outputs → assets**: files are streamed to storage, then an `Asset` row with full provenance is created.
+```
+Studio "Run" → POST /api/workflows/:id/execute
+   ├─ validate inputs against the version's inputSchema (coerce types)
+   ├─ tx: WorkflowExecution(PENDING) + NodeExecution(PENDING) per node
+   └─ BullMQ add(jobId = executionId)            ──▶  Redis
+                                                        │
+worker/index.ts (separate process) ◀────────────────────┘
+   └─ runExecution(executionId)  src/server/engine/executor.ts
+        ├─ load immutable version, re-validate
+        ├─ schedule: ready = all predecessors settled
+        │    run if ≥1 incoming edge active (source COMPLETED and, for a Condition, the taken handle)
+        │    else SKIPPED; nodes without inputs always run; ≤ EXECUTION_NODE_CONCURRENCY at once
+        ├─ node: resolve {{refs}} → handler (AbortSignal: timeout + cancellation) → persist
+        │    retryable errors (429/5xx/timeouts/network) → new attempt row, backoff or Retry-After
+        ├─ failure → fail fast: abort in-flight nodes, remaining nodes SKIPPED
+        ├─ cancel → API sets cancelRequestedAt; worker polls it and aborts
+        └─ finalize: status, outputs (Output nodes by name), tokens, cost, activity
+```
+
+* **Idempotent and resumable.** Finished executions are a no-op. A `RUNNING` execution picked up again (worker crash → BullMQ stalled-job re-delivery) keeps completed node outputs, marks in-flight attempts `FAILED (INTERRUPTED)` and continues.
+* **Providers** (`src/server/providers/`) implement `TextProvider`; a `ProviderResolver` supplies a client plus the secrets to redact. The OpenAI adapter calls the Responses API with plain `fetch`. Credentials come from `OPENAI_API_KEY` today; Milestone 5 adds per-user encrypted keys ahead of it.
+* **Cost** = catalogue pricing × tokens. Models without pricing record `NULL` cost.
+* **HTTP Request node** uses `safe-http.ts`: static URL check, then DNS answers are validated in the socket's `lookup` (the exact address connected to), sockets are never pooled (a reused socket would bypass the check), every redirect is re-checked, 2 MB response cap.
+* **Persistence hygiene.** Inputs, outputs, logs and errors pass through `redact()` (known secrets, key-like fields, token patterns). Persisted JSON is capped at 256 KB per value.
+* **Image generation** is wired in the editor but returns `NOT_AVAILABLE` at run time until object storage exists (Milestone 4).
 
 ## 7. Security model (summary)
 

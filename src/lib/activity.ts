@@ -10,6 +10,7 @@ const LABELS: Record<string, string> = {
   "execution.started": "Started an execution",
   "execution.completed": "Execution completed",
   "execution.failed": "Execution failed",
+  "execution.cancelled": "Execution cancelled",
   "asset.uploaded": "Uploaded an asset",
   "asset.generated": "Generated an asset",
   "collection.created": "Created a collection",

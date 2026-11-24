@@ -34,14 +34,20 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Tests: validator, URL safety, templates, editor store, API authz/validation/concurrency/versioning, E2E Studio flows
 - [ ] Execution status overlay on nodes — needs execution data (Milestone 3)
 
-## Milestone 3 — Execution engine
-- [ ] Worker process (`worker/`), BullMQ queue, graceful shutdown
-- [ ] Scheduler: topo order, bounded concurrency, branch skipping
-- [ ] Node handlers; OpenAI text provider via provider registry; pricing config
-- [ ] Retries, timeouts, cancellation, idempotency
-- [ ] SSRF-safe HTTP client; log redaction
-- [ ] Executions list/detail UI with per-node inspection; cancel/retry API
-- [ ] Tests: dependency resolution, branches, failures, retries, cancellation, SSRF
+## Milestone 3 — Execution engine ✅
+- [x] Worker process (`worker/index.ts`): BullMQ 6 + Redis, configurable concurrency, graceful shutdown, stalled-job re-delivery, optional `/health`
+- [x] Queue isolation by name (`EXECUTION_QUEUE_NAME`); jobId = executionId dedupes submissions
+- [x] Executor: re-validation, dependency scheduling, bounded parallelism, condition branches + joins, fail-fast, per-node timeouts, retries with backoff / Retry-After, cancellation (aborts in-flight calls), crash resume from persisted node state
+- [x] Node handlers: input, prompt template, AI text, condition, transform, HTTP request, output (AI image returns a clear "not available until M4" error)
+- [x] Provider abstraction + OpenAI Responses API adapter (no SDK), error mapping (auth / quota / rate limit / 5xx / rejected)
+- [x] Model catalogue refreshed to current OpenAI models with pricing from the official page (2026-11-25); unknown pricing → `NULL`, never $0
+- [x] SSRF-safe HTTP client: connect-time DNS validation, no socket pooling, re-checked redirects, size cap, timeouts, header filtering
+- [x] Secret redaction for node inputs/outputs/logs/errors; bounded persisted JSON
+- [x] Usage records + token and estimated-cost totals per node and per execution
+- [x] API: execute (input validation against version schema, idempotency keys), list/filter, detail, cancel, retry; 503 when the queue is down
+- [x] UI: Run dialog (typed inputs), executions list (status filters, live refresh), execution detail (live graph with node status, per-node attempts/input/output/logs, cancel/retry)
+- [x] Tests: engine semantics, SSRF client, OpenAI adapter, executions API, real Redis round-trip, E2E through a real worker and a mock OpenAI server
+- [ ] Per-user provider keys (Milestone 5) — the engine currently uses the server's `OPENAI_API_KEY`
 
 ## Milestone 4 — Asset manager
 - [ ] Storage adapter (local + S3-compatible), signed downloads

@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Play } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { MilestoneNotice } from "@/components/milestone-notice";
+import { notFound } from "next/navigation";
+import { ExecutionDetailView } from "@/components/executions/execution-detail";
+import { AppError } from "@/server/errors";
+import { getExecution } from "@/server/executions";
+import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Execution" };
 
-export default function Page() {
-  return (
-    <>
-      <PageHeader title="Execution" />
-      <MilestoneNotice
-        icon={Play}
-        title="Execution history"
-        milestone={3}
-        description="Workflows run in a background worker; every run and node is logged here."
-        capabilities={["Run history & status", "Per-node inputs, outputs, logs", "Token usage & cost", "Cancel & retry"]}
-      />
-    </>
-  );
+export default async function ExecutionPage({ params }: PageProps<"/executions/[id]">) {
+  const user = await requireUser();
+  const { id } = await params;
+  const execution = await getExecution(user.id, id).catch((e: unknown) => {
+    if (e instanceof AppError && e.status === 404) notFound();
+    throw e;
+  });
+  return <ExecutionDetailView key={execution.id} initial={execution} />;
 }

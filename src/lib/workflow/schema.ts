@@ -54,14 +54,15 @@ export const aiTextConfig = z.object({
 });
 
 export const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4"] as const;
-export const IMAGE_QUALITIES = ["standard", "high"] as const;
+export const IMAGE_QUALITIES = ["auto", "low", "medium", "high"] as const;
 
 export const aiImageConfig = z.object({
   provider: z.string().min(1).max(40),
   model: z.string().min(1).max(80),
   prompt: text(),
   aspectRatio: z.enum(ASPECT_RATIOS).default("1:1"),
-  quality: z.enum(IMAGE_QUALITIES).default("standard"),
+  // "standard" was the Milestone 2 default; map it so older drafts stay valid.
+  quality: z.preprocess((v) => (v === "standard" ? "auto" : v), z.enum(IMAGE_QUALITIES)).default("auto"),
   count: z.number().int().min(1).max(4).default(1),
   saveToLibrary: z.boolean().default(true),
 });

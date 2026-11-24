@@ -7,7 +7,13 @@ import { NODE_SPECS, nextNodeKey } from "@/lib/workflow/registry";
 import { WORKFLOW_SCHEMA_VERSION, type NodeType, type WorkflowDefinition } from "@/lib/workflow/schema";
 
 /** React Flow node carrying our stored node data unchanged. */
-export type StudioNodeData = { key: string; label: string; config: Record<string, unknown> };
+export type StudioNodeData = {
+  key: string;
+  label: string;
+  config: Record<string, unknown>;
+  /** Display-only: set when rendering an execution's graph. Never saved. */
+  runStatus?: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "SKIPPED";
+};
 export type StudioNode = Node<StudioNodeData, NodeType>;
 export type StudioEdge = Edge;
 

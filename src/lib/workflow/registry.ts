@@ -76,7 +76,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
       model: DEFAULT_IMAGE_MODEL.model,
       prompt: "",
       aspectRatio: "1:1",
-      quality: "standard",
+      quality: "auto",
       count: 1,
       saveToLibrary: true,
     }),

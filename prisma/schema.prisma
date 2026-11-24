@@ -185,7 +185,8 @@ model WorkflowExecution {
   durationMs        Int?
   inputTokens       Int                 @default(0)
   outputTokens      Int                 @default(0)
-  estimatedCostUsd  Decimal             @default(0) @db.Decimal(14, 6)
+  /// NULL until some priced usage is recorded.
+  estimatedCostUsd  Decimal?            @db.Decimal(14, 6)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
@@ -227,7 +228,8 @@ model NodeExecution {
   durationMs   Int?
   inputTokens  Int                 @default(0)
   outputTokens Int                 @default(0)
-  costUsd      Decimal             @default(0) @db.Decimal(14, 6)
+  /// NULL when the node used no priced model.
+  costUsd      Decimal?            @db.Decimal(14, 6)
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 

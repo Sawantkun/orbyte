@@ -68,6 +68,7 @@ export function Toolbar({
   publishing,
   onSave,
   onPublish,
+  onRun,
   onRestore,
   onTogglePalette,
   onToggleInspector,
@@ -78,6 +79,7 @@ export function Toolbar({
   publishing: boolean;
   onSave: () => void;
   onPublish: () => void;
+  onRun: () => void;
   onRestore: (v: VersionInfo) => void;
   onTogglePalette: () => void;
   onToggleInspector: () => void;
@@ -155,13 +157,13 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <span tabIndex={0} className="hidden rounded-lg sm:inline-flex">
-              <Button variant="outline" size="sm" disabled aria-disabled>
-                <Play /> Run
+            <span tabIndex={latestVersion > 0 ? -1 : 0} className="inline-flex rounded-lg">
+              <Button variant="outline" size="sm" disabled={latestVersion === 0} onClick={onRun} aria-label="Run">
+                <Play /> <span className="hidden sm:inline">Run</span>
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>Execution arrives in Milestone 3</TooltipContent>
+          <TooltipContent>{latestVersion > 0 ? `Run published version ${latestVersion}` : "Publish a version to run it"}</TooltipContent>
         </Tooltip>
 
         <Tooltip>

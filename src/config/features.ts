@@ -5,7 +5,7 @@
  */
 export const features = {
   workflowStudio: { available: true, milestone: 2 },
-  executions: { available: false, milestone: 3 },
+  executions: { available: true, milestone: 3 },
   assetLibrary: { available: false, milestone: 4 },
   collections: { available: false, milestone: 4 },
   integrations: { available: false, milestone: 5 },

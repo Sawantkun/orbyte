@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_IMAGE_MODEL, DEFAULT_TEXT_MODEL, PROVIDERS, modelsFor } from "@/config/ai-models";
+import { DEFAULT_IMAGE_MODEL, DEFAULT_TEXT_MODEL, PROVIDERS, findModel, modelsFor } from "@/config/ai-models";
 import {
   ASPECT_RATIOS,
   CONDITION_OPERATORS,
@@ -76,7 +76,7 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
             <SelectInput
               label="Model"
               value={str(c.model) || (type === "ai_text" ? DEFAULT_TEXT_MODEL.model : DEFAULT_IMAGE_MODEL.model)}
-              options={models.map((m) => ({ value: m.id, label: m.label }))}
+              options={models.filter((m) => !m.legacy || m.id === c.model).map((m) => ({ value: m.id, label: m.label }))}
               onChange={(v) => onChange({ model: v })}
               error={errorFor("model")}
             />
@@ -87,7 +87,14 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
           <TemplateInput label="Prompt" rows={6} value={str(c.prompt)} onChange={(v) => onChange({ prompt: v })} references={references} error={errorFor("prompt")} />
           {type === "ai_text" ? (
             <div className="grid grid-cols-2 gap-2">
-              <NumberInput label="Temperature" min={0} max={2} step={0.1} value={num(c.temperature, 0.7)} onChange={(v) => onChange({ temperature: v })} error={errorFor("temperature")} />
+              {findModel(provider, str(c.model))?.supportsTemperature ? (
+                <NumberInput label="Temperature" min={0} max={2} step={0.1} value={num(c.temperature, 0.7)} onChange={(v) => onChange({ temperature: v })} error={errorFor("temperature")} />
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-muted-foreground">Temperature</div>
+                  <p className="text-xs text-muted-foreground">Not used by this model.</p>
+                </div>
+              )}
               <NumberInput label="Max output tokens" min={1} max={32000} step={1} value={num(c.maxOutputTokens, 1024)} onChange={(v) => onChange({ maxOutputTokens: v })} error={errorFor("maxOutputTokens")} />
             </div>
           ) : (

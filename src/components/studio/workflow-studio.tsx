@@ -21,6 +21,7 @@ import { Canvas } from "./canvas";
 import { Inspector } from "./inspector";
 import { Palette } from "./palette";
 import { StudioStoreContext, createStudioStore, useStudio, useStudioApi } from "./store";
+import { RunDialog } from "./run-dialog";
 import { Toolbar, type VersionInfo } from "./toolbar";
 import { ValidationProvider } from "./validation-context";
 
@@ -70,6 +71,14 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
   const [restoreTarget, setRestoreTarget] = useState<VersionInfo | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
+  // Revision at the last publish: anything after it is unpublished draft work.
+  const [publishedRevision, setPublishedRevision] = useState(0);
+  // On load: the saved draft is newer than the latest version (publish itself bumps updatedAt by ms).
+  const [changedAtLoad, setChangedAtLoad] = useState(
+    () => workflow.versions.length > 0 && Date.parse(workflow.updatedAt) - Date.parse(workflow.versions[0].createdAt) > 2000,
+  );
+  const draftChanged = useStudio((s) => s.revision !== publishedRevision) || changedAtLoad;
   const canvasRef = useRef<HTMLDivElement>(null);
   const savingRef = useRef<Promise<boolean> | null>(null);
 
@@ -166,6 +175,8 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
       );
       api.getState().markSaved(data.workflow.updatedAt, api.getState().revision);
       setStatus(data.workflow.status);
+      setPublishedRevision(api.getState().revision);
+      setChangedAtLoad(false);
       setLatestVersion(data.version.version);
       setVersions((v) => [{ ...data.version, nodeCount: api.getState().nodes.length }, ...v]);
       toast.success(`Published version ${data.version.version}`, {
@@ -251,6 +262,7 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
           publishing={publishing}
           onSave={() => void save()}
           onPublish={() => void publish()}
+          onRun={() => setRunOpen(true)}
           onRestore={setRestoreTarget}
           onTogglePalette={() => setPaletteOpen(true)}
           onToggleInspector={() => setInspectorOpen(true)}
@@ -290,6 +302,8 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
           <Inspector />
         </SheetContent>
       </Sheet>
+
+      {latestVersion > 0 && <RunDialog workflowId={workflow.id} version={latestVersion} open={runOpen} onOpenChange={setRunOpen} draftChanged={draftChanged} />}
 
       <AlertDialog open={restoreTarget !== null} onOpenChange={(o) => !o && setRestoreTarget(null)}>
         <AlertDialogContent>

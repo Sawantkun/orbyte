@@ -25,6 +25,15 @@ const schema = z
     APPLICATION_URL: z.url(),
     ENCRYPTION_KEY: base64Key32,
     OPENAI_API_KEY: optionalString,
+    OPENAI_BASE_URL: z.url().default("https://api.openai.com"),
+    /** Queue name; separate names isolate environments sharing one Redis. */
+    EXECUTION_QUEUE_NAME: z.string().regex(/^[a-z0-9-]{1,60}$/).default("workflow-executions"),
+    /** If set, the worker serves GET /health on this port (liveness probes). */
+    WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+    EXECUTION_NODE_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),
+    EXECUTION_NODE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(15 * 60_000).default(120_000),
+    EXECUTION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(5).default(3),
     STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
     STORAGE_LOCAL_DIR: z.string().default("./.storage"),
     STORAGE_BUCKET: optionalString,

@@ -8,6 +8,10 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type AssetKind, type ExecutionStatus } from "../src/generated/prisma/client";
 import { hashPassword } from "better-auth/crypto";
+import { estimateCost } from "../src/config/ai-models";
+
+const MODEL = "gpt-6-luna";
+const COST = String(estimateCost("openai", MODEL, 600, 900));
 
 if (process.env.NODE_ENV === "production") {
   console.error("Refusing to seed a production database.");
@@ -51,11 +55,11 @@ async function main() {
           data: {
             ownerId: user.id, workflowId: wf.id, workflowVersionId: v.id, status, createdAt,
             startedAt: createdAt, finishedAt: new Date(createdAt.getTime() + 4200), durationMs: 1500 + ((d * 977 + r * 331) % 9000),
-            inputTokens: 600, outputTokens: 900, estimatedCostUsd: "0.0123",
+            inputTokens: 600, outputTokens: 900, estimatedCostUsd: status === "COMPLETED" ? COST : null,
           },
         });
         if (status === "COMPLETED") {
-          await db.usageRecord.create({ data: { ownerId: user.id, provider: "openai", model: "demo-model", executionId: ex.id, inputTokens: 600, outputTokens: 900, costUsd: "0.0123", createdAt } });
+          await db.usageRecord.create({ data: { ownerId: user.id, provider: "openai", model: MODEL, executionId: ex.id, inputTokens: 600, outputTokens: 900, costUsd: COST, createdAt } });
           if (r === 0) {
             const kind = kinds[(d + i) % kinds.length];
             await db.asset.create({
@@ -63,7 +67,7 @@ async function main() {
                 ownerId: user.id, name: `${name} — output ${d + 1}`, kind, source: "WORKFLOW",
                 mimeType: kind === "IMAGE" ? "image/png" : kind === "PDF" ? "application/pdf" : kind === "JSON" ? "application/json" : "text/plain",
                 sizeBytes: 2048 + d * 100, storageKey: `seed/${ex.id}`, workflowId: wf.id, executionId: ex.id, createdAt,
-                originalPrompt: `Generate ${name.toLowerCase()}`, aiProvider: "openai", aiModel: "demo-model",
+                originalPrompt: `Generate ${name.toLowerCase()}`, aiProvider: "openai", aiModel: MODEL,
               },
             });
           }

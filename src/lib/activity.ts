@@ -6,6 +6,7 @@ const LABELS: Record<string, string> = {
   "workflow.created": "Created a workflow",
   "workflow.updated": "Updated a workflow",
   "workflow.deleted": "Deleted a workflow",
+  "workflow.published": "Published a workflow",
   "execution.started": "Started an execution",
   "execution.completed": "Execution completed",
   "execution.failed": "Execution failed",

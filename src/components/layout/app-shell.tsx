@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, Plus, Search, Upload, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,9 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const pathname = usePathname();
+  // The workflow editor is a full-bleed canvas without page padding.
+  const fullBleed = /^\/workflows\/(?!new$)[^/]+$/.test(pathname);
 
   function toggle() {
     const next = !collapsed;
@@ -54,10 +58,11 @@ export function AppShell({
       <aside
         className={cn(
           "sticky top-0 hidden h-dvh shrink-0 border-r border-border bg-sidebar transition-[width] duration-200 md:block",
-          collapsed ? "w-[60px]" : "w-60",
+          collapsed || fullBleed ? "w-[60px]" : "w-60",
         )}
       >
-        <SidebarNav user={user} collapsed={collapsed} onToggle={toggle} />
+        {/* The Studio needs the width; the sidebar collapses while it is open. */}
+        <SidebarNav user={user} collapsed={collapsed || fullBleed} onToggle={fullBleed ? undefined : toggle} />
       </aside>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -100,9 +105,15 @@ export function AppShell({
           </div>
         </header>
 
-        <main id="main" className="flex-1 px-4 py-6 md:px-8 md:py-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
-        </main>
+        {fullBleed ? (
+          <main id="main" className="h-[calc(100dvh-3.5rem)] min-h-0 overflow-hidden">
+            {children}
+          </main>
+        ) : (
+          <main id="main" className="flex-1 px-4 py-6 md:px-8 md:py-8">
+            <div className="mx-auto w-full max-w-6xl">{children}</div>
+          </main>
+        )}
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />

@@ -31,17 +31,18 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions     Session[]
-  accounts     Account[]
-  workflows    Workflow[]
-  workflowVers WorkflowVersion[]
-  executions   WorkflowExecution[]
-  assets       Asset[]
-  collections  AssetCollection[]
-  tags         AssetTag[]
-  integrations Integration[]
-  usageRecords UsageRecord[]
-  activityLogs ActivityLog[]
+  sessions        Session[]
+  accounts        Account[]
+  workflows       Workflow[]
+  workflowVers    WorkflowVersion[]
+  executions      WorkflowExecution[]
+  assets          Asset[]
+  collections     AssetCollection[]
+  tags            AssetTag[]
+  integrations    Integration[]
+  usageRecords    UsageRecord[]
+  activityLogs    ActivityLog[]
+  promptTemplates PromptTemplate[]
 
   @@map("user")
 }
@@ -235,6 +236,25 @@ model NodeExecution {
   @@unique([executionId, nodeId, attempt])
   @@index([executionId])
   @@map("node_execution")
+}
+
+/// A reusable prompt with {{variables}}. Prompt Template nodes copy its content
+/// into their config, so editing a library template never changes a published version.
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  content     String
+  /// Variable names extracted from content, for display and search.
+  variables   String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ownerId, name])
+  @@index([ownerId, updatedAt(sort: Desc)])
+  @@map("prompt_template")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

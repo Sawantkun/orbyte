@@ -139,3 +139,62 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Workflow Studio (React Flow) ───────────────────────────────────────── */
+.orbyte-flow {
+  --xy-background-color: var(--ob-bg);
+  --xy-edge-stroke: #4b5263;
+  --xy-edge-stroke-selected: var(--ob-accent);
+  --xy-edge-stroke-width: 1.5;
+  --xy-connectionline-stroke: var(--ob-accent);
+  --xy-connectionline-stroke-width: 1.5;
+  --xy-selection-background-color: color-mix(in oklab, var(--ob-accent) 10%, transparent);
+  --xy-selection-border: 1px solid color-mix(in oklab, var(--ob-accent) 50%, transparent);
+  --xy-controls-button-background-color: var(--ob-card);
+  --xy-controls-button-background-color-hover: var(--ob-elevated);
+  --xy-controls-button-color: var(--ob-text-2);
+  --xy-controls-button-color-hover: var(--ob-text);
+  --xy-controls-button-border-color: var(--ob-border);
+  --xy-controls-box-shadow: none;
+  --xy-minimap-background-color: var(--ob-card);
+  --xy-node-boxshadow-selected: none;
+  --xy-node-border-radius: 12px;
+}
+.orbyte-flow .react-flow__controls {
+  border: 1px solid var(--ob-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.orbyte-flow .react-flow__edge.selected .react-flow__edge-path,
+.orbyte-flow .react-flow__edge:focus .react-flow__edge-path {
+  stroke: var(--ob-accent);
+}
+.orbyte-flow .react-flow__handle.connectingto,
+.orbyte-flow .react-flow__handle.valid {
+  background: var(--ob-accent) !important;
+}
+/* Our node types share names with React Flow's built-ins (input/output/default); drop their chrome. */
+.orbyte-flow .react-flow__node {
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  width: auto;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+.orbyte-flow .react-flow__node.selected,
+.orbyte-flow .react-flow__node:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+.orbyte-flow .react-flow__attribution {
+  background: transparent;
+  font-size: 10px;
+  opacity: 0.5;
+}
+.orbyte-flow .react-flow__attribution a {
+  color: var(--ob-text-2);
+}

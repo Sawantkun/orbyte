@@ -22,14 +22,14 @@ test("dashboard shows real, empty data with no invented metrics", async ({ page 
   await expect(metrics).toContainText("No priced usage recorded");
   await expect(page.getByText("No executions yet").first()).toBeVisible();
   // Features from later milestones are disabled, not fake.
-  await expect(page.getByRole("button", { name: "Create workflow" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Upload asset" }).first()).toBeDisabled();
 });
 
 test("sidebar navigation and collapsed state persists across reloads", async ({ page }) => {
   await page.goto("/dashboard");
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Workflows" }).click();
   await expect(page).toHaveURL(/\/workflows$/);
-  await expect(page.getByText("Coming in Milestone 2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
 
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();

@@ -32,6 +32,8 @@ const schema = z
     STORAGE_ACCESS_KEY: optionalString,
     STORAGE_SECRET_KEY: optionalString,
     STORAGE_ENDPOINT: optionalString,
+    /** Auth endpoint rate limiting. Only disable for automated test servers. */
+    AUTH_RATE_LIMIT: z.enum(["on", "off"]).default("on"),
     MAX_UPLOAD_BYTES: z.coerce.number().int().positive().max(1_000_000_000).default(50 * 1024 * 1024),
   })
   .superRefine((env, ctx) => {

@@ -20,14 +20,19 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Dev seed (`pnpm db:seed`), docker-compose for Postgres/Redis
 - [ ] Email verification & password reset (needs an email provider — decide in M6)
 
-## Milestone 2 — Workflow Studio
-- [ ] Workflow definition schema (Zod, versioned) + graph validator (cycles, reachability, ports, template vars)
-- [ ] Workflow CRUD API + list page (search, pagination) + duplicate/delete
-- [ ] React Flow editor: drag-drop palette, connections, minimap, controls, selection, delete, duplicate
-- [ ] Node components + config panels: Input, AI Text, AI Image, Prompt Template, Condition, Transform, HTTP Request, Output
-- [ ] Undo/redo, autosave draft, publish → WorkflowVersion, version history
-- [ ] Prompt template library (new `PromptTemplate` model)
-- [ ] Tests: validator unit tests, API authz, E2E create/save/reopen
+## Milestone 2 — Workflow Studio ✅
+- [x] Workflow definition schema v1 (Zod), per-node config schemas, size limits (`src/lib/workflow/schema.ts`)
+- [x] Node registry: 8 node types with handles, output fields, defaults (`registry.ts`)
+- [x] Graph validator: cycles, handles, dangling/self/duplicate edges, keys, config, required fields, model catalogue, upstream-only `{{references}}`, static SSRF URL check (`validate.ts`, `url-safety.ts`)
+- [x] Workflow API: list (search + cursor pagination), get, create (starters), update (optimistic concurrency → 409), delete, duplicate, publish → immutable version (422 with issues when invalid), list/get versions, restore
+- [x] Prompt template library (`PromptTemplate` model + API), load/save from the Prompt Template node
+- [x] Studio: palette (drag or click), canvas (zoom/pan/minimap/controls/snap), custom nodes with issue badges, connection rules (no cycles, no self-loops), inspector with typed forms and variable insertion
+- [x] Undo/redo with edit coalescing, duplicate (with internal edges), delete, keyboard shortcuts (⌘Z/⇧⌘Z/⌘Y/⌘D/⌫/⌘S/Esc)
+- [x] Autosave (1.5 s idle) + explicit save, unsaved-changes guard, conflict detection across tabs
+- [x] Live validation panel; publish/versions/restore UI; responsive panels (sheets below `lg`)
+- [x] Workflow list page (search, load more, duplicate, delete with confirm), create page with starters
+- [x] Tests: validator, URL safety, templates, editor store, API authz/validation/concurrency/versioning, E2E Studio flows
+- [ ] Execution status overlay on nodes — needs execution data (Milestone 3)
 
 ## Milestone 3 — Execution engine
 - [ ] Worker process (`worker/`), BullMQ queue, graceful shutdown

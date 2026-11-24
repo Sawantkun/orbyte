@@ -103,18 +103,53 @@ Full schema: [`prisma/schema.prisma`](../prisma/schema.prisma). Highlights:
 * **ActivityLog** powers the feed and notifications.
 * Future semantic search: add `pgvector` and an `AssetEmbedding(assetId, embedding vector, model)` table — kept out of the MVP schema on purpose (ADR-0003).
 
-## 6. Workflow execution (Milestones 2–3)
+## 6. Workflows
 
-1. **Definition** (`schemaVersion`, `nodes[]`, `edges[]`, `inputSchema`) is validated by a Zod discriminated union per node type, then by graph rules: one+ input node, all edges reference existing nodes/ports, no cycles (Kahn's algorithm), every non-input node reachable, template variables (`{{node.field}}`) resolve to upstream outputs.
-2. **Submit**: `POST /api/workflows/:id/execute` validates inputs against `inputSchema`, creates `WorkflowExecution(PENDING)` + `NodeExecution(PENDING)` rows in one transaction, and enqueues `{ executionId }` with `jobId = executionId` (BullMQ dedupes).
-3. **Worker**: loads the immutable version, topologically sorts it, and runs ready nodes concurrently up to a per-execution limit (plus a global worker concurrency). Each node: mark RUNNING → resolve inputs → run handler with an `AbortSignal` (timeout + cancellation) → persist output/usage → mark COMPLETED/FAILED.
-4. **Branches**: a Condition node marks the untaken branch's exclusive descendants `SKIPPED`.
-5. **Retries**: per-node policy (max attempts, exponential backoff, retry only on retryable errors such as 429/5xx/timeouts). Each attempt is its own `NodeExecution` row.
-6. **Cancellation**: `cancelRequestedAt` is set by the API; the worker checks it between nodes and aborts in-flight provider calls.
-7. **Logs**: structured `{ts, level, message, data}` entries passed through a redactor (API keys, `Authorization` headers, known secret patterns) before persistence.
-8. **Outputs → assets**: image/file outputs are streamed to storage, then an `Asset` row is created with full provenance inside the node's completion transaction.
+### 6.1 Definition format (Milestone 2)
 
-Node handlers implement one interface and live in a registry; providers implement `TextProvider` / `ImageProvider` behind a provider registry with pricing in configuration, not code.
+```jsonc
+{
+  "schemaVersion": 1,
+  "nodes": [{ "id": "n_x", "type": "ai_text", "position": {"x":0,"y":0},
+              "data": { "key": "draft", "label": "Draft", "config": { /* per-type */ } } }],
+  "edges": [{ "id": "e_y", "source": "n_a", "target": "n_x", "sourceHandle": "out", "targetHandle": "in" }]
+}
+```
+
+* `src/lib/workflow/` is **pure, framework-free TypeScript** shared by the editor, the API and the worker.
+* Every node has a stable `key` (e.g. `draft`). Templates reference upstream data as `{{key.field}}` (`{{draft.text}}`) or Input fields by name (`{{topic}}`). References must point to an **ancestor** in the graph; the validator enforces this so the executor never sees an unresolved variable.
+* Handles: every node except Input accepts `in`; Condition emits `true`/`false`; Output emits nothing.
+* **Drafts may be invalid** (structure is validated on save, graph rules are not), so work is never lost. **Publishing requires a valid graph** and snapshots it, plus the derived `inputSchema`, into an immutable `WorkflowVersion`.
+* Saves carry `expectedUpdatedAt`; a stale save returns **409** instead of overwriting another tab's edits.
+* The provider/model catalogue lives in `src/config/ai-models.ts`, not in node code.
+
+### 6.2 API
+
+| Method | Path | Notes |
+|---|---|---|
+| GET/POST | `/api/workflows` | `?q=&status=&cursor=&limit=`; POST `{ name, description?, starter }` |
+| GET/PATCH/DELETE | `/api/workflows/:id` | PATCH `{ name?, description?, definition?, expectedUpdatedAt? }` |
+| POST | `/api/workflows/:id/duplicate` | Copies the draft (no versions) |
+| POST | `/api/workflows/:id/publish` | 422 `{ details.issues }` when invalid |
+| GET | `/api/workflows/:id/versions[/:version]` | Version list / snapshot |
+| POST | `/api/workflows/:id/versions/:version/restore` | Replaces the draft |
+| GET/POST, PATCH/DELETE | `/api/prompt-templates[/:id]` | Per-user prompt library |
+
+Envelope: `{ data, meta? }` or `{ error: { code, message, details? } }`. All handlers use `withUser()` (`src/server/api.ts`), which authenticates from the request, validates with Zod and maps errors. Resources owned by another user return **404**.
+
+### 6.3 Editor
+
+Zustand store per editor instance (`components/studio/store.ts`) holds nodes/edges, selection, undo/redo snapshots (edits to the same field within 1 s coalesce) and a revision counter used by autosave to detect edits made during a save. React Flow (v13) renders it; deletion is routed through the store so it is undoable. Validation runs live on a deferred copy of the graph.
+
+### 6.4 Execution (Milestone 3)
+
+1. **Submit**: `POST /api/workflows/:id/execute` validates inputs against the version's `inputSchema`, creates `WorkflowExecution(PENDING)` + `NodeExecution(PENDING)` rows in one transaction, and enqueues `{ executionId }` with `jobId = executionId` (BullMQ dedupes).
+2. **Worker**: loads the immutable version, re-validates it, topologically sorts it, and runs ready nodes concurrently up to a per-execution limit. Each node: mark RUNNING → resolve `{{references}}` → run handler with an `AbortSignal` (timeout + cancellation) → persist output/usage → COMPLETED/FAILED.
+3. **Branches**: a Condition marks nodes reachable only through the untaken handle `SKIPPED`.
+4. **Retries**: per-node policy for retryable errors (429/5xx/timeouts); each attempt is its own `NodeExecution` row.
+5. **Cancellation**: `cancelRequestedAt` is checked between nodes; in-flight provider calls are aborted.
+6. **Logs**: structured entries passed through a secret redactor before persistence.
+7. **Outputs → assets**: files are streamed to storage, then an `Asset` row with full provenance is created.
 
 ## 7. Security model (summary)
 

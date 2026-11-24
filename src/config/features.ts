@@ -4,7 +4,7 @@
  * non-functional screens. Flip a flag when its milestone ships.
  */
 export const features = {
-  workflowStudio: { available: false, milestone: 2 },
+  workflowStudio: { available: true, milestone: 2 },
   executions: { available: false, milestone: 3 },
   assetLibrary: { available: false, milestone: 4 },
   collections: { available: false, milestone: 4 },

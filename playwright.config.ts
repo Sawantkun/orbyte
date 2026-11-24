@@ -32,6 +32,8 @@ export default defineConfig({
       BETTER_AUTH_URL: BASE_URL,
       APPLICATION_URL: BASE_URL,
       NEXT_DIST_DIR: ".next-e2e",
+      // E2E creates many accounts from one IP; limits are covered elsewhere.
+      AUTH_RATE_LIMIT: "off",
     },
   },
 });

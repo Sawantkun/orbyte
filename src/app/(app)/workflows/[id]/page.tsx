@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Workflow } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { MilestoneNotice } from "@/components/milestone-notice";
+import { notFound } from "next/navigation";
+import { WorkflowStudio } from "@/components/studio/workflow-studio";
+import { AppError } from "@/server/errors";
+import { requireUser } from "@/server/session";
+import { getWorkflow } from "@/server/workflows";
 
-export const metadata: Metadata = { title: "Workflow" };
+export const metadata: Metadata = { title: "Workflow Studio" };
 
-export default function Page() {
-  return (
-    <>
-      <PageHeader title="Workflow" />
-      <MilestoneNotice
-        icon={Workflow}
-        title="Workflow Studio"
-        milestone={2}
-        description="Build, version and validate AI workflows on a visual canvas."
-        capabilities={["Visual node editor", "Prompt, AI, condition & HTTP nodes", "Versioning & undo/redo", "Graph validation"]}
-      />
-    </>
-  );
+export default async function WorkflowStudioPage({ params }: PageProps<"/workflows/[id]">) {
+  const user = await requireUser();
+  const { id } = await params;
+  const workflow = await getWorkflow(user.id, id).catch((e: unknown) => {
+    if (e instanceof AppError && e.status === 404) notFound();
+    throw e;
+  });
+  return <WorkflowStudio workflow={workflow} />;
 }

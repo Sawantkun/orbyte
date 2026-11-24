@@ -65,7 +65,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
   ai_image: spec({
     type: "ai_image",
     label: "AI Image",
-    description: "Generate images; results can be saved to the library.",
+    description: "Generate images; results are saved to the library.",
     category: "AI",
     hasInput: true,
     outputs: ["out"],
@@ -79,6 +79,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
       quality: "auto",
       count: 1,
       saveToLibrary: true,
+      collectionId: null,
     }),
   }),
   condition: spec({
@@ -123,7 +124,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
     outputs: [],
     outputFields: [],
     keyPrefix: "output",
-    defaultConfig: () => ({ name: "result", format: "text", value: "", saveToLibrary: false, metadata: [] }),
+    defaultConfig: () => ({ name: "result", format: "text", value: "", saveToLibrary: false, collectionId: null, metadata: [] }),
   }),
 };
 

@@ -169,7 +169,17 @@ worker/index.ts (separate process) ◀──────────────
 * **Persistence hygiene.** Inputs, outputs, logs and errors pass through `redact()` (known secrets, key-like fields, token patterns). Persisted JSON is capped at 256 KB per value.
 * **Image generation** is wired in the editor but returns `NOT_AVAILABLE` at run time until object storage exists (Milestone 4).
 
-## 7. Security model (summary)
+## 7. Assets (Milestone 4)
+
+* **Storage** (`src/server/storage/`): `StorageAdapter` with `LocalStorage` (dev, `STORAGE_LOCAL_DIR`) and `S3Storage` (any S3-compatible endpoint). Keys are `<ownerId>/<yyyy>/<mm>/<128-bit random>.<ext>`, validated on every access; thumbnails sit beside originals as `.thumb.webp`. Objects are private; there are no public URLs.
+* **Upload** (`POST /api/assets/upload`, one file per request): content-length checked before buffering; extension must be on the allowlist (`server/assets/files.ts`) **and** the bytes must match (magic-byte sniffing for binaries; valid UTF-8 without binary signatures for text; JSON/SVG parsed). The stored MIME type comes from the allowlist, never from the browser. Images get a 480px WebP thumbnail (sharp with pixel/time limits).
+* **Serving** (`/api/assets/:id/content|download`): owner-checked streaming. Responses carry `nosniff`, a `sandbox` CSP (scripts never run, even in an SVG opened directly; PDF is the exception because the browser viewer cannot run sandboxed), and `Content-Disposition`. HTML/JS/text are always `text/plain`.
+* **Search**: `ILIKE` across name, description, prompt, tags and workflow name, backed by `pg_trgm` GIN indexes (declared in the Prisma schema). Filters: kinds, source, collection, tag, favorite, date range; sort by date/name/size; cursor pagination.
+* **Workflow outputs**: the engine gives handlers `saveAsset` / `annotateAssets` bound to the execution's provenance. AI Image always stores its images as assets (binary data needs a home); Output nodes with "save to library" store text/JSON, or file existing generated assets into a collection with metadata. Collections are re-checked against the owner at run time.
+* **Deletion**: rows first, then storage objects (best effort, failures logged). Deleting a collection only clears `collectionId`.
+* **Future semantic search**: an `AssetEmbedding` table (pgvector) filled by the worker, queried together with the same structured filters (ADR-0003).
+
+## 8. Security model (summary)
 
 | Risk | Mitigation |
 |---|---|
@@ -180,14 +190,14 @@ worker/index.ts (separate process) ◀──────────────
 | Secret leakage | Env validated at boot (names only in errors); provider keys encrypted (AES-256-GCM); log redaction; `storageKey` never serialised |
 | SSRF (HTTP node, M3) | https/http only, DNS resolve then block private/loopback/link-local/metadata ranges (incl. IPv6 + mapped), re-check on redirect, size + time limits |
 | Arbitrary code | No JS/shell execution in nodes; Transform node uses a fixed set of declarative operations |
-| Uploads (M4) | Size limit, MIME sniffing vs. extension allow-list, random storage keys, downloads via short-lived signed URLs or authorised streaming |
+| Uploads | Size limit before buffering, extension allowlist + magic-byte sniffing, canonical MIME, random owner-scoped keys, authorised streaming with sandbox CSP + nosniff |
 | Clickjacking / sniffing | `X-Frame-Options: DENY`, `nosniff`, strict referrer policy (next.config) |
 | Error leakage | Error boundaries show a digest only; server logs omit secrets |
 
-## 8. Rendering model
+## 9. Rendering model
 
 Every product page is per-user and reads the session, so Orbyte uses classic dynamic rendering (Cache Components off). See [ADR-0002](./decisions/0002-rendering-model.md).
 
-## 9. Feature flags for unbuilt milestones
+## 10. Feature flags for unbuilt milestones
 
 `src/config/features.ts` declares which features are available. Entry points for future milestones render disabled with "Coming in Milestone N" instead of linking to non-functional screens; routes exist and show an honest notice. Flip the flag when the milestone ships.

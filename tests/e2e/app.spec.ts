@@ -22,7 +22,7 @@ test("dashboard shows real, empty data with no invented metrics", async ({ page 
   await expect(metrics).toContainText("No priced usage recorded");
   await expect(page.getByText("No executions yet").first()).toBeVisible();
   // Features from later milestones are disabled, not fake.
-  await expect(page.getByRole("button", { name: "Upload asset" }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Connect provider" })).toBeDisabled();
 });
 
 test("sidebar navigation and collapsed state persists across reloads", async ({ page }) => {

@@ -76,17 +76,17 @@ test("cancels a running execution and retries it", async ({ page }) => {
 });
 
 test("a failing node fails the run with a clear error and skips downstream nodes", async ({ page }) => {
-  // Image generation isn't executable until Milestone 4 — a deterministic failure path.
+  // The mock rejects prompts containing this marker with an auth error (non-retryable).
   await page.goto("/workflows/new");
   await page.getByLabel("Name").fill("Will fail");
-  await page.getByRole("radio", { name: /Image generation/ }).click();
+  await page.getByRole("radio", { name: /Text generation/ }).click();
   await page.getByRole("button", { name: "Create and open Studio" }).click();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("Published version 1")).toBeVisible();
   await page.getByRole("button", { name: "Run" }).click();
-  await page.getByRole("dialog").getByRole("textbox").fill("a lighthouse");
+  await page.getByRole("dialog").getByRole("textbox").fill("[fail-auth] topic");
   await page.getByRole("dialog").getByRole("button", { name: "Run" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "Failed" })).toContainText("Image generation runs once asset storage ships", { timeout: 20_000 });
+  await expect(page.getByRole("alert").filter({ hasText: "Failed" })).toContainText("OpenAI rejected the API key", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
   await page.getByTestId("node-output_1").click();
   await expect(page.locator("section[aria-label=Details]").getByText("Skipped")).toBeVisible();

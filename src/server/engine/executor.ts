@@ -8,9 +8,11 @@ import { NODE_SPECS } from "@/lib/workflow/registry";
 import { NODE_CONFIG_SCHEMAS, workflowDefinitionSchema, type WorkflowDefinition, type WorkflowNode } from "@/lib/workflow/schema";
 import { validateWorkflow } from "@/lib/workflow/validate";
 import { recordActivity } from "../activity";
+import { createAsset } from "../assets/service";
+import { kindForMime } from "../assets/files";
 import type { ProviderResolver } from "../providers/types";
 import { NodeError, toNodeError } from "./errors";
-import { runHandler, type LogLevel } from "./handlers";
+import { runHandler, type AnnotateAssets, type LogLevel, type SaveAsset } from "./handlers";
 import type { LookupFn } from "./safe-http";
 
 /**
@@ -179,6 +181,46 @@ export async function runExecution(executionId: string, deps: EngineDeps): Promi
     return (outputs.get(edge.source)?.result === true ? "true" : "false") === edge.handle;
   };
 
+  // ── Asset helpers bound to this execution's provenance ────────────────────
+  const ownedCollection = async (collectionId: string | null | undefined, log: (l: LogLevel, m: string) => void) => {
+    if (!collectionId) return null;
+    const c = await db.assetCollection.findFirst({ where: { id: collectionId, ownerId }, select: { id: true } });
+    if (!c) log("warn", "The selected collection no longer exists; saving without a collection");
+    return c?.id ?? null;
+  };
+  const saveAssetFor =
+    (node: WorkflowNode, log: (l: LogLevel, m: string) => void): SaveAsset =>
+    async (input) => {
+      const a = await createAsset(ownerId, {
+        ...input,
+        collectionId: await ownedCollection(input.collectionId, log),
+        kind: kindForMime(input.mimeType),
+        source: "WORKFLOW",
+        workflowId: exec.workflowId,
+        executionId,
+        nodeId: node.id,
+        tags: [],
+      });
+      return { id: a.id, name: a.name, mimeType: a.mimeType };
+    };
+  const annotateAssetsFor =
+    (log: (l: LogLevel, m: string) => void): AnnotateAssets =>
+    async (assetIds, patch) => {
+      // Only assets produced by this execution can be re-filed from a workflow.
+      const rows = await db.asset.findMany({ where: { ownerId, executionId, id: { in: assetIds } }, select: { id: true, metadata: true } });
+      const collectionId = patch.collectionId === undefined ? undefined : await ownedCollection(patch.collectionId, log);
+      for (const r of rows) {
+        await db.asset.update({
+          where: { id: r.id },
+          data: {
+            ...(collectionId ? { collectionId } : {}),
+            ...(patch.metadata ? { metadata: { ...((r.metadata as object) ?? {}), ...patch.metadata } as Prisma.InputJsonValue } : {}),
+          },
+        });
+      }
+      return rows.length;
+    };
+
   // ── Run one node with retries and a timeout ───────────────────────────────
   const runNode = async (node: WorkflowNode): Promise<void> => {
     const config = NODE_CONFIG_SCHEMAS[node.type].parse(node.data.config);
@@ -211,6 +253,8 @@ export async function runExecution(executionId: string, deps: EngineDeps): Promi
         const result = await Promise.race([
           runHandler(node.type, config, {
             ownerId,
+            saveAsset: saveAssetFor(node, log),
+            annotateAssets: annotateAssetsFor(log),
             node,
             scope,
             signal: nodeAbort.signal,
@@ -248,7 +292,17 @@ export async function runExecution(executionId: string, deps: EngineDeps): Promi
           ...(usage
             ? [
                 db.usageRecord.create({
-                  data: { ownerId, provider: usage.provider, model: usage.model, executionId, nodeExecutionId: row.id, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, costUsd: cost },
+                  data: {
+                    ownerId,
+                    provider: usage.provider,
+                    model: usage.model,
+                    executionId,
+                    nodeExecutionId: row.id,
+                    inputTokens: usage.inputTokens,
+                    outputTokens: usage.outputTokens,
+                    imageCount: usage.imageCount ?? 0,
+                    costUsd: cost,
+                  },
                 }),
               ]
             : []),

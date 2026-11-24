@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
+import os from "node:os";
 import path from "node:path";
 
 import "dotenv/config";
@@ -35,6 +36,9 @@ export default defineConfig({
       BETTER_AUTH_URL: "http://localhost:3000",
       APPLICATION_URL: "http://localhost:3000",
       ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+      STORAGE_PROVIDER: "local",
+      STORAGE_LOCAL_DIR: path.join(os.tmpdir(), `orbyte-test-storage-${process.pid}`),
+      MAX_UPLOAD_BYTES: String(2 * 1024 * 1024),
     },
   },
 });

@@ -13,6 +13,7 @@ const LABELS: Record<string, string> = {
   "execution.cancelled": "Execution cancelled",
   "asset.uploaded": "Uploaded an asset",
   "asset.generated": "Generated an asset",
+  "asset.deleted": "Deleted assets",
   "collection.created": "Created a collection",
   "integration.added": "Connected an integration",
   "integration.removed": "Removed an integration",

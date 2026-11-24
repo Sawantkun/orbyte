@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import { Boxes } from "lucide-react";
+import { AssetLibrary } from "@/components/assets/asset-library";
 import { PageHeader } from "@/components/layout/page-header";
-import { MilestoneNotice } from "@/components/milestone-notice";
+import { ACCEPT_ATTRIBUTE } from "@/server/assets/files";
+import { listCollections } from "@/server/collections";
+import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Assets" };
 
-export default function Page() {
+export default async function AssetsPage({ searchParams }: PageProps<"/assets">) {
+  const user = await requireUser();
+  const [collections, sp] = await Promise.all([listCollections(user.id), searchParams]);
   return (
     <>
-      <PageHeader title="Assets" />
-      <MilestoneNotice
-        icon={Boxes}
-        title="The asset library"
-        milestone={4}
-        description="Upload files and collect everything your workflows generate, with prompts and provenance attached."
-        capabilities={["Upload, preview, download", "Tags, favorites, search", "Grid & list views, bulk actions", "Automatic workflow outputs"]}
-      />
+      <PageHeader title="Assets" description="Everything you upload and everything your workflows create, in one searchable library." />
+      <AssetLibrary collections={collections} accept={ACCEPT_ATTRIBUTE} autoOpenUpload={sp.upload === "1"} />
     </>
   );
 }

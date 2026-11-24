@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   devIndicators: { position: "bottom-right" },
-  serverExternalPackages: ["@prisma/client", "pg", "bullmq", "ioredis"],
+  serverExternalPackages: ["@prisma/client", "pg", "bullmq", "ioredis", "sharp", "@aws-sdk/client-s3"],
   turbopack: {
     rules: {
       "*.css": {
@@ -23,7 +23,8 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          // SAMEORIGIN (not DENY) so asset previews such as PDFs can be framed by the app itself.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],

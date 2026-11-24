@@ -8,8 +8,26 @@ import { safeRequest, type LookupFn } from "./safe-http";
 
 export type LogLevel = "info" | "warn" | "error";
 
+/** Saves generated content as an asset with this node's provenance attached. */
+export type SaveAsset = (input: {
+  name: string;
+  buffer: Buffer;
+  mimeType: string;
+  extension: string;
+  collectionId?: string | null;
+  originalPrompt?: string | null;
+  aiProvider?: string | null;
+  aiModel?: string | null;
+  metadata?: Record<string, unknown>;
+}) => Promise<{ id: string; name: string; mimeType: string }>;
+
+/** Moves existing assets (from this execution) into a collection / merges metadata. */
+export type AnnotateAssets = (assetIds: string[], patch: { collectionId?: string | null; metadata?: Record<string, unknown> }) => Promise<number>;
+
 export type HandlerContext = {
   ownerId: string;
+  saveAsset: SaveAsset;
+  annotateAssets: AnnotateAssets;
   node: WorkflowNode;
   scope: Scope;
   signal: AbortSignal;
@@ -25,8 +43,18 @@ export type HandlerResult = {
   /** Resolved inputs, recorded for inspection. */
   input: Record<string, unknown>;
   output: Record<string, unknown>;
-  usage?: { provider: string; model: string; inputTokens: number; outputTokens: number };
+  usage?: { provider: string; model: string; inputTokens: number; outputTokens: number; imageCount?: number };
 };
+
+const IMAGE_SIZES = { "1:1": "1024x1024", "16:9": "1536x1024", "4:3": "1536x1024", "9:16": "1024x1536", "3:4": "1024x1536" } as const;
+
+/** Asset references produced by AI Image nodes: [{ assetId, ... }]. */
+function assetRefs(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [value];
+  return list.flatMap((v) => (v && typeof v === "object" && typeof (v as { assetId?: unknown }).assetId === "string" ? [(v as { assetId: string }).assetId] : []));
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "output";
 
 type Handler<T extends NodeType> = (config: NodeConfigMap[T], ctx: HandlerContext) => Promise<HandlerResult>;
 
@@ -89,8 +117,38 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
     };
   },
 
-  async ai_image() {
-    throw new NodeError("NOT_AVAILABLE", "Image generation runs once asset storage ships (Milestone 4).", false);
+  async ai_image(c, ctx) {
+    const prompt = text(ctx, c.prompt, "Prompt");
+    if (!prompt.trim()) throw new NodeError("EMPTY_PROMPT", "The prompt resolved to empty text", false);
+    const model = findModel(c.provider, c.model);
+    if (!model || model.capability !== "image") throw new NodeError("UNKNOWN_MODEL", `Unknown model "${c.model}"`, false);
+    const { provider, secrets } = await ctx.providers.image(c.provider, ctx.ownerId);
+    ctx.addSecrets(secrets);
+    const size = IMAGE_SIZES[c.aspectRatio];
+    ctx.log("info", `Generating ${c.count} image(s) with ${c.provider} ${c.model}`, { size, quality: c.quality });
+    const result = await provider.generateImages({ model: c.model, prompt, size, quality: c.quality, count: c.count, signal: ctx.signal });
+
+    const images = [];
+    for (const [i, img] of result.images.entries()) {
+      const saved = await ctx.saveAsset({
+        name: `${ctx.node.data.label} ${i + 1}.png`,
+        buffer: img.data,
+        mimeType: img.mimeType,
+        extension: "png",
+        collectionId: c.collectionId,
+        originalPrompt: prompt,
+        aiProvider: c.provider,
+        aiModel: c.model,
+        metadata: { size, quality: c.quality, aspectRatio: c.aspectRatio },
+      });
+      images.push({ assetId: saved.id, name: saved.name, mimeType: saved.mimeType });
+    }
+    ctx.log("info", `Saved ${images.length} image(s) to the asset library`);
+    return {
+      input: { model: c.model, prompt, size, quality: c.quality, count: c.count },
+      output: { images },
+      usage: { provider: c.provider, model: c.model, ...result.usage, imageCount: images.length },
+    };
   },
 
   async condition(c, ctx) {
@@ -141,9 +199,34 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
         throw new NodeError("INVALID_DATA", `Output "${c.name}" is not valid JSON`, false);
       }
     }
-    if (c.saveToLibrary) ctx.log("warn", "Saving outputs to the asset library arrives in Milestone 4; the value is kept on this execution.");
     const metadata = Object.fromEntries(c.metadata.filter((m) => m.key.trim()).map((m) => [m.key.trim(), text(ctx, m.value, `Metadata ${m.key}`)]));
-    return { input: {}, output: { name: c.name, format: c.format, value: v, metadata } };
+    const output: Record<string, unknown> = { name: c.name, format: c.format, value: v, metadata };
+
+    if (c.saveToLibrary) {
+      const refs = c.format === "file" ? assetRefs(v) : [];
+      if (refs.length) {
+        // Files generated upstream are already assets: file them and attach metadata.
+        const n = await ctx.annotateAssets(refs, { collectionId: c.collectionId, metadata: { output: c.name, ...metadata } });
+        ctx.log("info", `Organised ${n} generated file(s) in the library`);
+        output.assetIds = refs;
+      } else if (v === null || v === undefined || v === "") {
+        ctx.log("warn", "Nothing to save: the value is empty");
+      } else {
+        const isJson = c.format === "json" || (typeof v !== "string" && c.format !== "text");
+        const body = isJson ? JSON.stringify(v, null, 2) : typeof v === "string" ? v : JSON.stringify(v);
+        const saved = await ctx.saveAsset({
+          name: `${slug(c.name)}.${isJson ? "json" : "txt"}`,
+          buffer: Buffer.from(body, "utf8"),
+          mimeType: isJson ? "application/json" : "text/plain",
+          extension: isJson ? "json" : "txt",
+          collectionId: c.collectionId,
+          metadata: { output: c.name, ...metadata },
+        });
+        ctx.log("info", `Saved "${saved.name}" to the asset library`);
+        output.assetIds = [saved.id];
+      }
+    }
+    return { input: {}, output };
   },
 };
 

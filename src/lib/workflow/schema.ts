@@ -64,7 +64,10 @@ export const aiImageConfig = z.object({
   // "standard" was the Milestone 2 default; map it so older drafts stay valid.
   quality: z.preprocess((v) => (v === "standard" ? "auto" : v), z.enum(IMAGE_QUALITIES)).default("auto"),
   count: z.number().int().min(1).max(4).default(1),
+  /** Generated images are always stored as assets (they need a home); kept for compatibility. */
   saveToLibrary: z.boolean().default(true),
+  /** Optional collection for generated images. Checked against the owner at run time. */
+  collectionId: z.string().max(40).nullable().default(null),
 });
 
 export const promptTemplateConfig = z.object({
@@ -125,6 +128,7 @@ export const outputConfig = z.object({
   format: z.enum(OUTPUT_FORMATS),
   value: text(),
   saveToLibrary: z.boolean().default(false),
+  collectionId: z.string().max(40).nullable().default(null),
   metadata: z.array(keyValue).max(20).default([]),
 });
 

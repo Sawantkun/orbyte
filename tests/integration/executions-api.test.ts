@@ -108,7 +108,14 @@ describe("executions API", () => {
     const id = await publishedWorkflow(cookie);
     const exec = (await (await run(cookie, id, { inputs: { topic: "x" } })).json()).data;
     await runExecution(exec.id, {
-      providers: { text: async () => { throw new NodeError("PROVIDER_NOT_CONFIGURED", "OpenAI isn't configured.", false); } },
+      providers: {
+        text: async () => {
+          throw new NodeError("PROVIDER_NOT_CONFIGURED", "OpenAI isn't configured.", false);
+        },
+        image: async () => {
+          throw new NodeError("PROVIDER_NOT_CONFIGURED", "OpenAI isn't configured.", false);
+        },
+      },
       nodeConcurrency: 2,
       nodeTimeoutMs: 1000,
       maxAttempts: 1,

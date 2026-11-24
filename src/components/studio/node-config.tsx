@@ -14,6 +14,7 @@ import {
 import type { ValidationIssue } from "@/lib/workflow/validate";
 import { KeyValueInput, NumberInput, SelectInput, SwitchInput, TemplateInput, TextInput } from "./fields";
 import { PromptLibrary } from "./prompt-library";
+import { useCollections } from "./use-collections";
 
 type Config = Record<string, unknown>;
 type Props = {
@@ -104,7 +105,8 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
                 <SelectInput label="Quality" value={str(c.quality) as (typeof IMAGE_QUALITIES)[number]} options={opts(IMAGE_QUALITIES, human)} onChange={(v) => onChange({ quality: v })} />
                 <NumberInput label="Images" min={1} max={4} step={1} value={num(c.count, 1)} onChange={(v) => onChange({ count: v })} error={errorFor("count")} />
               </div>
-              <SwitchInput label="Save to asset library" hint="Generated images are stored with their prompt and model." checked={c.saveToLibrary !== false} onChange={(v) => onChange({ saveToLibrary: v })} />
+              <CollectionPicker value={str(c.collectionId) || null} onChange={(v) => onChange({ collectionId: v })} />
+              <p className="text-xs text-muted-foreground">Generated images are always saved to your asset library with their prompt, model and run.</p>
             </>
           )}
         </>
@@ -178,9 +180,23 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
           <TextInput label="Output name" mono value={str(c.name)} onChange={(v) => onChange({ name: v })} error={errorFor("name")} />
           <SelectInput label="Format" value={str(c.format) as (typeof OUTPUT_FORMATS)[number]} options={opts(OUTPUT_FORMATS, human)} onChange={(v) => onChange({ format: v })} />
           <TemplateInput label="Value" rows={3} value={str(c.value)} onChange={(v) => onChange({ value: v })} references={references} error={errorFor("value")} />
-          <SwitchInput label="Save to asset library" hint="Stored with provenance when the workflow runs." checked={c.saveToLibrary === true} onChange={(v) => onChange({ saveToLibrary: v })} />
+          <SwitchInput
+            label="Save to asset library"
+            hint={c.format === "file" ? "Files from upstream nodes (e.g. AI Image) are filed and tagged with this output's metadata." : "Saved as a .txt or .json file with provenance."}
+            checked={c.saveToLibrary === true}
+            onChange={(v) => onChange({ saveToLibrary: v })}
+          />
+          {c.saveToLibrary === true && <CollectionPicker value={str(c.collectionId) || null} onChange={(v) => onChange({ collectionId: v })} />}
           <KeyValueInput label="Metadata" value={kv(c.metadata)} onChange={(v) => onChange({ metadata: v })} />
         </>
       );
   }
+}
+
+function CollectionPicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const collections = useCollections();
+  const options = [{ value: "none", label: collections === null ? "Loading…" : "No collection" }, ...(collections ?? []).map((c) => ({ value: c.id, label: c.name }))];
+  // Keep an unknown id selectable so the value is not silently dropped (it is re-checked at run time).
+  if (value && collections && !collections.some((c) => c.id === value)) options.push({ value, label: "Unavailable collection" });
+  return <SelectInput label="Add to collection" value={value ?? "none"} options={options} onChange={(v) => onChange(v === "none" ? null : v)} />;
 }

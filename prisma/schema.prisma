@@ -126,6 +126,7 @@ model Workflow {
 
   @@index([ownerId, updatedAt(sort: Desc)])
   @@index([ownerId, status])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "workflow_name_trgm_idx")
   @@map("workflow")
 }
 
@@ -320,6 +321,10 @@ model Asset {
   @@index([ownerId, isFavorite])
   @@index([workflowId])
   @@index([executionId])
+  // Trigram indexes for library search (extension created in migration asset_search_trgm).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "asset_name_trgm_idx")
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin, map: "asset_description_trgm_idx")
+  @@index([originalPrompt(ops: raw("gin_trgm_ops"))], type: Gin, map: "asset_original_prompt_trgm_idx")
   @@map("asset")
 }
 
@@ -352,6 +357,7 @@ model AssetTag {
   assets AssetTagRelation[]
 
   @@unique([ownerId, name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "asset_tag_name_trgm_idx")
   @@map("asset_tag")
 }
 

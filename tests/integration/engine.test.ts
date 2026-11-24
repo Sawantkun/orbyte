@@ -23,6 +23,9 @@ type Script = (req: TextGenerationRequest, call: number) => Promise<string> | st
 function fakeProviders(script: Script, secret = "sk-test-SECRET-1234567890abcdef") {
   const calls: TextGenerationRequest[] = [];
   const resolver: ProviderResolver = {
+    async image() {
+      throw new NodeError("PROVIDER_UNSUPPORTED", "no images in this fake", false);
+    },
     async text() {
       return {
         secrets: [secret],
@@ -266,17 +269,6 @@ describe("runExecution", () => {
     const blobs = JSON.stringify([await nodeRows(executionId), await db.workflowExecution.findUniqueOrThrow({ where: { id: executionId }, select: { output: true, error: true } })]);
     expect(blobs).not.toContain(secret);
     expect(blobs).toContain("[redacted]");
-  });
-
-  it("reports a clear error for nodes that are not executable yet", async () => {
-    const d = def(
-      [n("in", "input", "input_1", { fieldName: "subject" }), n("img", "ai_image", "image_1", { prompt: "{{subject}}" }), n("o", "output", "o", { value: "{{image_1.images}}" })],
-      [e("in", "img"), e("img", "o")],
-    );
-    const { resolver } = fakeProviders(() => "");
-    const { executionId } = await setup(d, { subject: "x" });
-    expect(await runExecution(executionId, deps(resolver))).toBe("FAILED");
-    expect((await db.workflowExecution.findUniqueOrThrow({ where: { id: executionId } })).error).toMatchObject({ code: "NOT_AVAILABLE" });
   });
 
   it("finalizes an execution cancelled before it started", async () => {

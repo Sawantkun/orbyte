@@ -8,7 +8,9 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type AssetKind, type ExecutionStatus } from "../src/generated/prisma/client";
 import { hashPassword } from "better-auth/crypto";
+import sharp from "sharp";
 import { estimateCost } from "../src/config/ai-models";
+import { createAsset } from "../src/server/assets/service";
 
 const MODEL = "gpt-6-luna";
 const COST = String(estimateCost("openai", MODEL, 600, 900));
@@ -24,6 +26,13 @@ const PASSWORD = "orbyte-demo-password";
 const day = 86_400_000;
 
 async function main() {
+  // Remove the previous demo user's stored files too.
+  const old = await db.user.findUnique({ where: { email: EMAIL }, select: { id: true } });
+  if (old) {
+    const { deleteAssets } = await import("../src/server/assets/service");
+    const ids = (await db.asset.findMany({ where: { ownerId: old.id }, select: { id: true } })).map((a) => a.id);
+    if (ids.length) await deleteAssets(old.id, ids);
+  }
   await db.user.deleteMany({ where: { email: EMAIL } });
   const user = await db.user.create({
     data: {
@@ -39,7 +48,8 @@ async function main() {
 
   const flows = ["Product launch copy", "Blog hero images", "Support reply drafts"];
   const statuses: ExecutionStatus[] = ["COMPLETED", "COMPLETED", "COMPLETED", "FAILED", "COMPLETED", "CANCELLED"];
-  const kinds: AssetKind[] = ["IMAGE", "IMAGE", "TEXT", "JSON", "IMAGE", "PDF", "TEXT"];
+  const kinds: AssetKind[] = ["IMAGE", "IMAGE", "TEXT", "JSON", "IMAGE", "TEXT", "TEXT"];
+  const PALETTE = ["#8b5cf6", "#22c55e", "#f59e0b", "#38bdf8", "#a78bfa"];
 
   for (const [i, name] of flows.entries()) {
     const wf = await db.workflow.create({
@@ -62,14 +72,26 @@ async function main() {
           await db.usageRecord.create({ data: { ownerId: user.id, provider: "openai", model: MODEL, executionId: ex.id, inputTokens: 600, outputTokens: 900, costUsd: COST, createdAt } });
           if (r === 0) {
             const kind = kinds[(d + i) % kinds.length];
-            await db.asset.create({
-              data: {
-                ownerId: user.id, name: `${name} — output ${d + 1}`, kind, source: "WORKFLOW",
-                mimeType: kind === "IMAGE" ? "image/png" : kind === "PDF" ? "application/pdf" : kind === "JSON" ? "application/json" : "text/plain",
-                sizeBytes: 2048 + d * 100, storageKey: `seed/${ex.id}`, workflowId: wf.id, executionId: ex.id, createdAt,
-                originalPrompt: `Generate ${name.toLowerCase()}`, aiProvider: "openai", aiModel: MODEL,
-              },
+            // Real files through the real asset service (storage + thumbnails).
+            const file =
+              kind === "IMAGE"
+                ? { buffer: await sharp({ create: { width: 640, height: 400, channels: 3, background: PALETTE[(d + i) % PALETTE.length] } }).png().toBuffer(), mimeType: "image/png", extension: "png" }
+                : kind === "JSON"
+                  ? { buffer: Buffer.from(JSON.stringify({ workflow: name, day: d }, null, 2)), mimeType: "application/json", extension: "json" }
+                  : { buffer: Buffer.from(`${name} — sample output for day ${d + 1}.`), mimeType: "text/plain", extension: "txt" };
+            const asset = await createAsset(user.id, {
+              name: `${name} — output ${d + 1}.${file.extension}`,
+              ...file,
+              kind: kind === "PDF" ? "TEXT" : kind,
+              source: "WORKFLOW",
+              workflowId: wf.id,
+              executionId: ex.id,
+              nodeId: "seed",
+              originalPrompt: `Generate ${name.toLowerCase()}`,
+              aiProvider: "openai",
+              aiModel: MODEL,
             });
+            await db.asset.update({ where: { id: asset.id }, data: { createdAt } });
           }
         }
       }

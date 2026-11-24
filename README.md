@@ -2,7 +2,7 @@
 
 **Create. Connect. Organize.** — an intelligent workspace that connects AI workflows, automates creative processes, and organizes everything AI creates.
 
-> Status: **Milestone 3 (Execution engine)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> Status: **Milestone 4 (Asset manager)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Requirements
 - Node.js ≥ 22, pnpm 11
@@ -19,6 +19,8 @@ pnpm db:seed                  # optional: demo@orbyte.dev / orbyte-demo-password
 pnpm dev                      # http://localhost:3000
 pnpm worker                   # in a second terminal: runs workflow executions
 ```
+
+Files are stored under `./.storage` by default; set `STORAGE_PROVIDER="s3"` and the `STORAGE_*` variables for S3, Cloudflare R2 or MinIO.
 
 Running AI nodes needs `OPENAI_API_KEY` in `.env`. Without it, AI nodes fail with a clear "OpenAI isn't configured" error; everything else (inputs, conditions, transforms, HTTP, outputs) runs.
 

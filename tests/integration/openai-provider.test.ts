@@ -72,6 +72,18 @@ describe("OpenAIProvider (Responses API)", () => {
     await expect(call()).rejects.toSatisfy((e: Error) => !e.message.includes("sk-test-key"));
   });
 
+  it("generates images via the Image API and decodes base64", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    next = { status: 200, body: { data: [{ b64_json: png.toString("base64") }, { b64_json: png.toString("base64") }], usage: { input_tokens: 9, output_tokens: 300 } } };
+    const res = await provider().generateImages({ model: "gpt-image-2.6-flare", prompt: "cat", size: "1024x1536", quality: "low", count: 2, signal: new AbortController().signal });
+    expect(res.images).toHaveLength(2);
+    expect(res.images[0]).toEqual({ data: png, mimeType: "image/png" });
+    expect(res.usage).toEqual({ inputTokens: 9, outputTokens: 300 });
+    expect(last!.body).toEqual({ model: "gpt-image-2.6-flare", prompt: "cat", n: 2, size: "1024x1536", quality: "low", output_format: "png" });
+    next = { status: 200, body: { data: [] } };
+    await expect(provider().generateImages({ model: "m", prompt: "x", size: "1024x1024", quality: "auto", count: 1, signal: new AbortController().signal })).rejects.toMatchObject({ code: "PROVIDER_ERROR" });
+  });
+
   it("maps network failures to a retryable error", async () => {
     await expect(new OpenAIProvider("k", "http://127.0.0.1:1").generateText({ model: "m", prompt: "x", maxOutputTokens: 1, signal: new AbortController().signal })).rejects.toMatchObject({ code: "PROVIDER_UNREACHABLE", retryable: true });
   });

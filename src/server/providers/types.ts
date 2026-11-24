@@ -20,7 +20,27 @@ export interface TextProvider {
   generateText(req: TextGenerationRequest): Promise<TextGenerationResult>;
 }
 
+export type ImageGenerationRequest = {
+  model: string;
+  prompt: string;
+  size: "1024x1024" | "1536x1024" | "1024x1536";
+  quality: "auto" | "low" | "medium" | "high";
+  count: number;
+  signal: AbortSignal;
+};
+
+export type ImageGenerationResult = {
+  images: { data: Buffer; mimeType: string }[];
+  usage: { inputTokens: number; outputTokens: number };
+};
+
+export interface ImageProvider {
+  readonly id: string;
+  generateImages(req: ImageGenerationRequest): Promise<ImageGenerationResult>;
+}
+
 /** Resolves a provider client for a user. Throws NodeError("PROVIDER_NOT_CONFIGURED") if no credential exists. */
 export type ProviderResolver = {
   text(providerId: string, ownerId: string): Promise<{ provider: TextProvider; secrets: string[] }>;
+  image(providerId: string, ownerId: string): Promise<{ provider: ImageProvider; secrets: string[] }>;
 };

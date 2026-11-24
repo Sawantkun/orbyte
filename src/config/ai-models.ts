@@ -42,9 +42,9 @@ export const PROVIDERS: ProviderInfo[] = [
       { id: "gpt-6-luna", label: "GPT-6 Luna", capability: "text", pricing: { input: 0.1, output: 0.5 } },
       { id: "gpt-4.1", label: "GPT-4.1 (legacy)", capability: "text", supportsTemperature: true, legacy: true, pricing: { input: 2, output: 8 } },
       { id: "gpt-4.1-mini", label: "GPT-4.1 mini (legacy)", capability: "text", supportsTemperature: true, legacy: true, pricing: { input: 0.4, output: 1.6 } },
-      // Image models are billed per image token; per-image cost is computed in Milestone 4.
-      { id: "gpt-image-2.6-sunburst", label: "GPT-Image-2.6 Sunburst", capability: "image" },
-      { id: "gpt-image-2.6-flare", label: "GPT-Image-2.6 Flare", capability: "image" },
+      // Image models: prompt (text input) $5 / 1M tokens, image output $30 / 1M tokens.
+      { id: "gpt-image-2.6-sunburst", label: "GPT-Image-2.6 Sunburst", capability: "image", pricing: { input: 5, output: 30 } },
+      { id: "gpt-image-2.6-flare", label: "GPT-Image-2.6 Flare", capability: "image", pricing: { input: 5, output: 30 } },
     ],
   },
 ];

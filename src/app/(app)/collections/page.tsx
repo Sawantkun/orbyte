@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { FolderKanban } from "lucide-react";
+import { CollectionsGrid } from "@/components/assets/collections-grid";
 import { PageHeader } from "@/components/layout/page-header";
-import { MilestoneNotice } from "@/components/milestone-notice";
+import { listCollections } from "@/server/collections";
+import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Collections" };
 
-export default function Page() {
+export default async function CollectionsPage() {
+  const user = await requireUser();
+  const collections = await listCollections(user.id);
   return (
     <>
-      <PageHeader title="Collections" />
-      <MilestoneNotice
-        icon={FolderKanban}
-        title="Collections"
-        milestone={4}
-        description="Group assets into collections such as campaigns, clients or research."
-        capabilities={["Create & rename collections", "Cover images", "Move assets between collections", "Deleting keeps the assets"]}
-      />
+      <PageHeader title="Collections" description="Organise assets into campaigns, clients, projects or anything else." />
+      <CollectionsGrid initial={collections} />
     </>
   );
 }

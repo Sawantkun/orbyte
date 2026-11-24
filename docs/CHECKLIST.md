@@ -49,13 +49,20 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Tests: engine semantics, SSRF client, OpenAI adapter, executions API, real Redis round-trip, E2E through a real worker and a mock OpenAI server
 - [ ] Per-user provider keys (Milestone 5) — the engine currently uses the server's `OPENAI_API_KEY`
 
-## Milestone 4 — Asset manager
-- [ ] Storage adapter (local + S3-compatible), signed downloads
-- [ ] Upload API (size + MIME validation), thumbnails
-- [ ] Library: grid/list, filters, sort, search, favorites, bulk select/delete/tag
-- [ ] Asset detail + metadata edit; collections CRUD with cover; tags
-- [ ] Automatic workflow output → asset pipeline
-- [ ] Tests: upload validation, ownership, metadata, collections, download authz
+## Milestone 4 — Asset manager ✅
+- [x] Storage abstraction: local adapter (dev) + S3-compatible adapter (AWS S3, R2, MinIO); unguessable owner-scoped keys; path-traversal-proof
+- [x] Upload API: size limit (checked before buffering), extension allowlist + magic-byte sniffing (`file-type`), canonical MIME types, JSON/SVG/UTF-8 validation
+- [x] Thumbnails (sharp, 480px WebP) with pixel and time limits; image dimensions in metadata
+- [x] Safe serving: authorised streaming only, `nosniff`, sandbox CSP, text-like types as `text/plain`, attachment downloads, PDF preview
+- [x] Library: search (names, descriptions, tags, prompts, workflow names; trigram-indexed), type/source/collection/tag/favorite/date filters, sort, cursor pagination, grid & list views
+- [x] Uploads: multi-file, drag-and-drop anywhere, 3 parallel with per-file progress and errors
+- [x] Bulk actions: favorite, add/remove tags, move to collection, delete (with confirm) — owner-scoped
+- [x] Asset detail: preview (image, video, audio, PDF, text/JSON/code), metadata editing, tags, collection, favorite, download, delete, generation provenance, related assets
+- [x] Collections: create/rename/delete (assets kept), covers (explicit or newest image), counts, search, collection pages with remove-from-collection
+- [x] Workflow outputs → assets: AI Image node (OpenAI Images API) stores every image with prompt/provider/model/workflow/execution/node; Output node saves text/JSON or files generated upstream, into a chosen collection, with metadata
+- [x] Tests: upload validation, storage keys, S3 adapter commands, API authz/headers/filters/bulk/collections, engine → library pipeline, E2E library/collections/generated images
+- [ ] Video seeking via HTTP Range requests (previews play, scrubbing is limited)
+- [ ] Semantic search (pgvector) — architecture documented, not built
 
 ## Milestone 5 — Integrations & analytics
 - [ ] Encrypted provider keys (AES-256-GCM), validate/replace/delete

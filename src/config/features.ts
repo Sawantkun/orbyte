@@ -6,8 +6,8 @@
 export const features = {
   workflowStudio: { available: true, milestone: 2 },
   executions: { available: true, milestone: 3 },
-  assetLibrary: { available: false, milestone: 4 },
-  collections: { available: false, milestone: 4 },
+  assetLibrary: { available: true, milestone: 4 },
+  collections: { available: true, milestone: 4 },
   integrations: { available: false, milestone: 5 },
   usage: { available: false, milestone: 5 },
 } as const;

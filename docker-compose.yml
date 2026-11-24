@@ -1,0 +1,23 @@
+# Local infrastructure for Orbyte. `docker compose up -d`, then use:
+#   DATABASE_URL="postgresql://orbyte:orbyte@localhost:5432/orbyte"
+#   REDIS_URL="redis://localhost:6379"
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: orbyte
+      POSTGRES_PASSWORD: orbyte
+      POSTGRES_DB: orbyte
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbyte"]
+      interval: 5s
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+volumes:
+  pgdata:

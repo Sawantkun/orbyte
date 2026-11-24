@@ -38,12 +38,18 @@ const port = Number(process.env.MOCK_OPENAI_PORT ?? 3199);
 http
   .createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") return res.end("ok");
+    // Keys: the platform key, or any "sk-e2e-…" user key except revoked ones.
+    const auth = String(req.headers.authorization ?? "");
+    const keyOk = auth === "Bearer sk-e2e-test-key" || (auth.startsWith("Bearer sk-e2e-") && !auth.includes("revoked"));
+    if (req.method === "GET" && req.url === "/v1/models") {
+      return res.writeHead(keyOk ? 200 : 401, { "content-type": "application/json" }).end(JSON.stringify(keyOk ? { data: [] } : { error: { message: "bad key" } }));
+    }
     if (req.method !== "POST" || (req.url !== "/v1/responses" && req.url !== "/v1/images/generations")) return res.writeHead(404).end();
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       const body = JSON.parse(raw);
-      if (req.headers.authorization !== "Bearer sk-e2e-test-key" || String(body.input ?? "").includes("[fail-auth]")) {
+      if (!keyOk || String(body.input ?? "").includes("[fail-auth]")) {
         return res.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: "bad key" } }));
       }
       if (req.url === "/v1/images/generations") {

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { LogOut, Plus, Upload } from "lucide-react";
+import { FolderPlus, LogOut, Plus, Upload } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -12,10 +12,8 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
-import { primaryNav, secondaryNav } from "@/config/navigation";
-import { features } from "@/config/features";
+import { extraNav, primaryNav, secondaryNav } from "@/config/navigation";
 import { useSignOut } from "./user-menu";
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -45,7 +43,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Navigate">
-          {[...primaryNav, ...secondaryNav].map((item) => (
+          {[...primaryNav, ...secondaryNav, ...extraNav].map((item) => (
             <CommandItem
               key={item.href}
               value={[item.title, ...(item.keywords ?? [])].join(" ")}
@@ -57,16 +55,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Actions">
-          <CommandItem
-            disabled={!features.workflowStudio.available}
-            onSelect={() => run(() => router.push("/workflows/new"))}
-          >
+          <CommandItem onSelect={() => run(() => router.push("/workflows/new"))}>
             <Plus /> New workflow
-            {!features.workflowStudio.available && <CommandShortcut>Milestone 2</CommandShortcut>}
           </CommandItem>
-          <CommandItem disabled={!features.assetLibrary.available} onSelect={() => run(() => router.push("/assets?upload=1"))}>
+          <CommandItem onSelect={() => run(() => router.push("/assets?upload=1"))}>
             <Upload /> Upload asset
-            {!features.assetLibrary.available && <CommandShortcut>Milestone 4</CommandShortcut>}
+          </CommandItem>
+          <CommandItem value="new collection" onSelect={() => run(() => router.push("/collections"))}>
+            <FolderPlus /> New collection
           </CommandItem>
           <CommandItem value="sign out log out" onSelect={() => run(() => void signOut())}>
             <LogOut /> Sign out

@@ -39,8 +39,11 @@ export interface ImageProvider {
   generateImages(req: ImageGenerationRequest): Promise<ImageGenerationResult>;
 }
 
+/** A provider client plus the secrets to redact and where the credential came from. */
+export type ResolvedProvider<P> = { provider: P; secrets: string[]; source?: "user" | "platform" };
+
 /** Resolves a provider client for a user. Throws NodeError("PROVIDER_NOT_CONFIGURED") if no credential exists. */
 export type ProviderResolver = {
-  text(providerId: string, ownerId: string): Promise<{ provider: TextProvider; secrets: string[] }>;
-  image(providerId: string, ownerId: string): Promise<{ provider: ImageProvider; secrets: string[] }>;
+  text(providerId: string, ownerId: string): Promise<ResolvedProvider<TextProvider>>;
+  image(providerId: string, ownerId: string): Promise<ResolvedProvider<ImageProvider>>;
 };

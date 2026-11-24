@@ -18,10 +18,9 @@ import {
 } from "lucide-react";
 import { AssetDistribution, ExecutionActivityChart } from "@/components/dashboard/charts";
 import { EmptyState } from "@/components/empty-state";
-import { FeatureButton } from "@/components/feature-button";
+import { LinkButton } from "@/components/link-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import type { FeatureKey } from "@/config/features";
 import { assetKindLabel, formatCount, formatDuration, formatUsd } from "@/lib/format";
 import { getDashboardData } from "@/server/dashboard";
 import { requireUser } from "@/server/session";
@@ -45,15 +44,15 @@ export default async function DashboardPage() {
         description="Here's what's happening across your workflows and assets."
         actions={
           <>
-            <FeatureButton href="/workflows" variant="outline" feature="workflowStudio">
+            <LinkButton href="/workflows" variant="outline">
               Browse workflows
-            </FeatureButton>
-            <FeatureButton href="/assets?upload=1" variant="outline" feature="assetLibrary">
+            </LinkButton>
+            <LinkButton href="/assets?upload=1" variant="outline">
               <Upload /> Upload asset
-            </FeatureButton>
-            <FeatureButton href="/workflows/new" feature="workflowStudio">
+            </LinkButton>
+            <LinkButton href="/workflows/new">
               <Plus /> Create workflow
-            </FeatureButton>
+            </LinkButton>
           </>
         }
       />
@@ -138,21 +137,27 @@ export default async function DashboardPage() {
 
         <Panel title="Quick actions">
           <div className="grid grid-cols-2 gap-2">
-            <QuickAction icon={Plus} label="New workflow" href="/workflows/new" feature="workflowStudio" />
-            <QuickAction icon={Upload} label="Upload asset" href="/assets?upload=1" feature="assetLibrary" />
-            <QuickAction icon={FolderPlus} label="New collection" href="/collections" feature="collections" />
-            <QuickAction icon={Blocks} label="Connect provider" href="/integrations" feature="integrations" />
+            <QuickAction icon={Plus} label="New workflow" href="/workflows/new" />
+            <QuickAction icon={Upload} label="Upload asset" href="/assets?upload=1" />
+            <QuickAction icon={FolderPlus} label="New collection" href="/collections" />
+            <QuickAction icon={Blocks} label="Connect provider" href="/integrations" />
             <QuickAction icon={Settings} label="Account settings" href="/settings/profile" />
           </div>
         </Panel>
 
-        <Panel title="Recent activity" id="activity" className="lg:col-span-2">
+        <Panel title="Recent activity" id="activity" href="/activity" className="lg:col-span-2">
           {data.activity.length > 0 ? (
             <ol className="relative space-y-4 border-l border-border pl-5">
               {data.activity.map((item) => (
                 <li key={item.id} className="relative">
                   <span className="absolute top-1.5 -left-[24.5px] size-2 rounded-full border-2 border-card bg-primary" aria-hidden />
-                  <p className="text-sm">{item.label}</p>
+                  {item.href ? (
+                    <Link href={item.href} className="text-sm hover:underline">
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <p className="text-sm">{item.label}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">{ago(item.createdAt)}</p>
                 </li>
               ))}
@@ -237,11 +242,11 @@ function Row({ href, primary, secondary, trailing }: { href: string; primary: st
   );
 }
 
-function QuickAction({ icon: Icon, label, href, feature }: { icon: LucideIcon; label: string; href: string; feature?: FeatureKey }) {
+function QuickAction({ icon: Icon, label, href }: { icon: LucideIcon; label: string; href: string }) {
   return (
-    <FeatureButton href={href} feature={feature} variant="outline" className="h-auto w-full flex-col items-start gap-2 p-3 text-left font-normal">
+    <LinkButton href={href} variant="outline" className="h-auto w-full flex-col items-start gap-2 p-3 text-left font-normal">
       <Icon className="size-4 text-[var(--ob-accent-2)]" />
       <span className="text-xs">{label}</span>
-    </FeatureButton>
+    </LinkButton>
   );
 }

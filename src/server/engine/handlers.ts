@@ -97,8 +97,9 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
     const model = findModel(c.provider, c.model);
     if (!model || model.capability !== "text") throw new NodeError("UNKNOWN_MODEL", `Unknown model "${c.model}"`, false);
 
-    const { provider, secrets } = await ctx.providers.text(c.provider, ctx.ownerId);
+    const { provider, secrets, source } = await ctx.providers.text(c.provider, ctx.ownerId);
     ctx.addSecrets(secrets);
+    if (source) ctx.log("info", source === "user" ? "Using your connected API key" : "Using the workspace API key");
     ctx.log("info", `Calling ${c.provider} ${c.model}`, { promptChars: prompt.length, maxOutputTokens: c.maxOutputTokens });
     const result = await provider.generateText({
       model: c.model,
@@ -122,8 +123,9 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
     if (!prompt.trim()) throw new NodeError("EMPTY_PROMPT", "The prompt resolved to empty text", false);
     const model = findModel(c.provider, c.model);
     if (!model || model.capability !== "image") throw new NodeError("UNKNOWN_MODEL", `Unknown model "${c.model}"`, false);
-    const { provider, secrets } = await ctx.providers.image(c.provider, ctx.ownerId);
+    const { provider, secrets, source } = await ctx.providers.image(c.provider, ctx.ownerId);
     ctx.addSecrets(secrets);
+    if (source) ctx.log("info", source === "user" ? "Using your connected API key" : "Using the workspace API key");
     const size = IMAGE_SIZES[c.aspectRatio];
     ctx.log("info", `Generating ${c.count} image(s) with ${c.provider} ${c.model}`, { size, quality: c.quality });
     const result = await provider.generateImages({ model: c.model, prompt, size, quality: c.quality, count: c.count, signal: ctx.signal });

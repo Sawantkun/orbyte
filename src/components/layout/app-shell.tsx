@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Plus, Search, Upload, Workflow } from "lucide-react";
+import { FolderPlus, Menu, Plus, Search, Upload, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { features } from "@/config/features";
 import type { ActivityItem } from "@/lib/activity";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_COOKIE } from "./constants";
@@ -98,8 +97,9 @@ export function AppShell({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <CreateItem href="/workflows/new" icon={Workflow} label="New workflow" feature="workflowStudio" />
-                <CreateItem href="/assets?upload=1" icon={Upload} label="Upload asset" feature="assetLibrary" />
+                <CreateItem href="/workflows/new" icon={Workflow} label="New workflow" />
+                <CreateItem href="/assets?upload=1" icon={Upload} label="Upload asset" />
+                <CreateItem href="/collections" icon={FolderPlus} label="New collection" />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -121,26 +121,7 @@ export function AppShell({
   );
 }
 
-function CreateItem({
-  href,
-  icon: Icon,
-  label,
-  feature,
-}: {
-  href: string;
-  icon: typeof Plus;
-  label: string;
-  feature: "workflowStudio" | "assetLibrary";
-}) {
-  const f = features[feature];
-  if (!f.available) {
-    return (
-      <DropdownMenuItem disabled>
-        <Icon /> {label}
-        <span className="ml-auto text-[10px] text-muted-foreground">Milestone {f.milestone}</span>
-      </DropdownMenuItem>
-    );
-  }
+function CreateItem({ href, icon: Icon, label }: { href: string; icon: typeof Plus; label: string }) {
   return (
     <DropdownMenuItem asChild>
       <Link href={href}>

@@ -179,7 +179,13 @@ worker/index.ts (separate process) ◀──────────────
 * **Deletion**: rows first, then storage objects (best effort, failures logged). Deleting a collection only clears `collectionId`.
 * **Future semantic search**: an `AssetEmbedding` table (pgvector) filled by the worker, queried together with the same structured filters (ADR-0003).
 
-## 8. Security model (summary)
+## 8. Integrations & analytics (Milestone 5)
+
+* **Credentials** (`src/server/integrations.ts`, `src/server/crypto/secrets.ts`): AES-256-GCM with owner/provider-bound AAD and key versions (ADR-0008). The engine's `ProviderResolver` tries the user's key, then the platform key; a key rejected mid-run is flagged `INVALID`.
+* **Usage** (`src/server/usage.ts`): SQL aggregates over `usage_record` / `workflow_execution` for 7, 30 or 90 UTC days: totals, daily cost, by model, by workflow. Costs come from catalogue pricing at run time. Unpriced requests are counted separately, never as $0.
+* **Activity**: `activity_log` rows map to links via `activityHref()`. Deletions are recorded without links.
+
+## 9. Security model (summary)
 
 | Risk | Mitigation |
 |---|---|
@@ -187,17 +193,13 @@ worker/index.ts (separate process) ◀──────────────
 | Session theft / fixation | httpOnly, SameSite=Lax, `Secure` in production; DB sessions; revocation UI |
 | Brute force | Better Auth rate limits on auth endpoints |
 | Open redirect | `safeRedirectPath()` |
-| Secret leakage | Env validated at boot (names only in errors); provider keys encrypted (AES-256-GCM); log redaction; `storageKey` never serialised |
+| Secret leakage | Env validated at boot (names only in errors); provider keys AES-256-GCM with owner-bound AAD and rotation; never returned by APIs; redacted from node data and logs; `storageKey` never serialised |
 | SSRF (HTTP node, M3) | https/http only, DNS resolve then block private/loopback/link-local/metadata ranges (incl. IPv6 + mapped), re-check on redirect, size + time limits |
 | Arbitrary code | No JS/shell execution in nodes; Transform node uses a fixed set of declarative operations |
 | Uploads | Size limit before buffering, extension allowlist + magic-byte sniffing, canonical MIME, random owner-scoped keys, authorised streaming with sandbox CSP + nosniff |
 | Clickjacking / sniffing | `X-Frame-Options: DENY`, `nosniff`, strict referrer policy (next.config) |
 | Error leakage | Error boundaries show a digest only; server logs omit secrets |
 
-## 9. Rendering model
+## 10. Rendering model
 
 Every product page is per-user and reads the session, so Orbyte uses classic dynamic rendering (Cache Components off). See [ADR-0002](./decisions/0002-rendering-model.md).
-
-## 10. Feature flags for unbuilt milestones
-
-`src/config/features.ts` declares which features are available. Entry points for future milestones render disabled with "Coming in Milestone N" instead of linking to non-functional screens; routes exist and show an honest notice. Flip the flag when the milestone ships.

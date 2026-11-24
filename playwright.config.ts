@@ -18,6 +18,9 @@ const shared = {
   BETTER_AUTH_URL: BASE_URL,
   APPLICATION_URL: BASE_URL,
   EXECUTION_QUEUE_NAME: "workflow-executions-e2e",
+  // Both the app (key validation) and the worker (runs) talk to the mock OpenAI.
+  OPENAI_BASE_URL: "http://127.0.0.1:3199",
+  OPENAI_API_KEY: "sk-e2e-test-key",
 };
 
 export default defineConfig({
@@ -48,7 +51,7 @@ export default defineConfig({
       url: "http://127.0.0.1:3198/health",
       timeout: 60_000,
       reuseExistingServer: false,
-      env: { ...shared, WORKER_HEALTH_PORT: "3198", OPENAI_BASE_URL: "http://127.0.0.1:3199", OPENAI_API_KEY: "sk-e2e-test-key", EXECUTION_MAX_ATTEMPTS: "1" },
+      env: { ...shared, WORKER_HEALTH_PORT: "3198", EXECUTION_MAX_ATTEMPTS: "1" },
     },
   ],
 });

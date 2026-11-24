@@ -327,9 +327,16 @@ export async function updateAsset(
 
 /** Delete owned assets (others are ignored) and their stored objects. Returns the number deleted. */
 export async function deleteAssets(ownerId: string, ids: string[]): Promise<number> {
-  const rows = await db.asset.findMany({ where: { ownerId, id: { in: ids } }, select: { id: true, storageKey: true, thumbnailKey: true } });
+  const rows = await db.asset.findMany({ where: { ownerId, id: { in: ids } }, select: { id: true, name: true, storageKey: true, thumbnailKey: true } });
   if (rows.length === 0) return 0;
   await db.asset.deleteMany({ where: { ownerId, id: { in: rows.map((r) => r.id) } } });
+  await recordActivity({
+    ownerId,
+    action: "assets.deleted",
+    entityType: "asset",
+    entityId: rows.length === 1 ? rows[0].id : undefined,
+    metadata: { name: rows.length === 1 ? rows[0].name : `${rows.length} assets` },
+  });
   const storage = getStorage();
   const results = await Promise.allSettled(rows.flatMap((r) => [storage.delete(r.storageKey), ...(r.thumbnailKey ? [storage.delete(r.thumbnailKey)] : [])]));
   const failed = results.filter((r) => r.status === "rejected").length;

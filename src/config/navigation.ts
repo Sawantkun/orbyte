@@ -1,5 +1,7 @@
 import {
+  Activity,
   Blocks,
+  Gauge,
   Boxes,
   FolderKanban,
   LayoutDashboard,
@@ -24,6 +26,12 @@ export const primaryNav: NavItem[] = [
   { title: "Executions", href: "/executions", icon: Play, keywords: ["runs", "history", "logs"] },
   { title: "Collections", href: "/collections", icon: FolderKanban, keywords: ["folders"] },
   { title: "Integrations", href: "/integrations", icon: Blocks, keywords: ["providers", "api keys", "openai"] },
+];
+
+/** Reachable from the command palette and the activity bell, not the sidebar. */
+export const extraNav: NavItem[] = [
+  { title: "Activity", href: "/activity", icon: Activity, keywords: ["feed", "history", "log"] },
+  { title: "Usage & spend", href: "/settings/usage", icon: Gauge, keywords: ["cost", "tokens", "billing", "analytics"] },
 ];
 
 export const secondaryNav: NavItem[] = [

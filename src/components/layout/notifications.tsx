@@ -26,12 +26,20 @@ export function Notifications({ items }: { items: ActivityItem[] }) {
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel>Recent activity</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {items.length > 0 && (
+          <>
+            <DropdownMenuItem asChild className="justify-center text-xs text-muted-foreground">
+              <Link href="/activity">View all activity</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {items.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">Nothing here yet.</p>
         ) : (
           items.map((item) => (
             <DropdownMenuItem key={item.id} className="flex-col items-start gap-0.5" asChild>
-              <Link href="/dashboard#activity">
+              <Link href={item.href ?? "/activity"}>
                 <span className="text-sm">{item.label}</span>
                 <span className="text-xs text-muted-foreground">
                   {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}

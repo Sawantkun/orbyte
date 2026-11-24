@@ -19,7 +19,8 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "worker": "tsx watch --conditions=react-server --env-file=.env worker/index.ts",
-    "worker:start": "tsx --conditions=react-server worker/index.ts"
+    "worker:start": "tsx --conditions=react-server worker/index.ts",
+    "secrets:rotate": "tsx --conditions=react-server --env-file=.env scripts/rotate-secrets.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1166.0",

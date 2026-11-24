@@ -21,8 +21,8 @@ test("dashboard shows real, empty data with no invented metrics", async ({ page 
   await expect(metrics).toContainText("Workflows0");
   await expect(metrics).toContainText("No priced usage recorded");
   await expect(page.getByText("No executions yet").first()).toBeVisible();
-  // Features from later milestones are disabled, not fake.
-  await expect(page.getByRole("button", { name: "Connect provider" })).toBeDisabled();
+  await page.getByRole("link", { name: "Connect provider" }).click();
+  await expect(page).toHaveURL(/\/integrations$/);
 });
 
 test("sidebar navigation and collapsed state persists across reloads", async ({ page }) => {

@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
-import { Blocks } from "lucide-react";
+import { IntegrationsView } from "@/components/integrations/integrations-view";
 import { PageHeader } from "@/components/layout/page-header";
-import { MilestoneNotice } from "@/components/milestone-notice";
+import { INTEGRATION_PROVIDERS } from "@/config/integrations";
+import { listIntegrations, platformKeyAvailable } from "@/server/integrations";
+import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Integrations" };
 
-export default function Page() {
+export default async function IntegrationsPage() {
+  const user = await requireUser();
+  const integrations = await listIntegrations(user.id);
+  const providers = INTEGRATION_PROVIDERS.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    available: p.available,
+    keyPlaceholder: p.keyPlaceholder,
+    docsUrl: p.docsUrl,
+    platformKey: platformKeyAvailable(p.id),
+  }));
   return (
     <>
-      <PageHeader title="Integrations" />
-      <MilestoneNotice
-        icon={Blocks}
-        title="Integrations"
-        milestone={5}
-        description="Connect your own AI provider keys. Keys are encrypted at rest and never sent back to the browser."
-        capabilities={["OpenAI first, more providers later", "Encrypted API key storage", "Credential validation", "Usage & spend tracking"]}
-      />
+      <PageHeader title="Integrations" description="Connect your own AI provider keys. Workflows use your key first." />
+      <IntegrationsView providers={providers} initial={integrations} />
     </>
   );
 }

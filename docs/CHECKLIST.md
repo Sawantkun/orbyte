@@ -64,10 +64,16 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [ ] Video seeking via HTTP Range requests (previews play, scrubbing is limited)
 - [ ] Semantic search (pgvector) — architecture documented, not built
 
-## Milestone 5 — Integrations & analytics
-- [ ] Encrypted provider keys (AES-256-GCM), validate/replace/delete
-- [ ] Usage records, estimated spend, usage page, analytics
-- [ ] Activity feed coverage for all domain events
+## Milestone 5 — Integrations & analytics ✅
+- [x] AES-256-GCM credential sealing with owner/provider-bound AAD, per-row IV/tag, key versions and a rotation script (`pnpm secrets:rotate`)
+- [x] Integrations API: connect (format check + zero-cost validation), replace, re-check, remove; secrets never returned
+- [x] Engine credential precedence: user key → platform key → clear error; keys rejected at run time are marked INVALID; resolved keys are redacted everywhere
+- [x] Integrations page: status, hint, last checked, replace/re-check/remove with confirmation; Anthropic and Gemini shown as "coming soon"
+- [x] Usage analytics (`/settings/usage`): 7/30/90-day totals, cost per day, by model, by workflow; unpriced usage reported separately
+- [x] Activity: paginated `/activity` page grouped by day, linked items, more event types (key replaced, collection deleted, assets deleted), "view all" from the bell and dashboard
+- [x] Removed milestone gating (all features live)
+- [x] Tests: crypto (tamper/AAD/rotation), integrations API + authz, credential precedence, usage aggregation + isolation, E2E keys/usage/activity
+- [ ] Multiple keys per provider (schema-ready, UI not exposed)
 
 ## Milestone 6 — Production readiness
 - [ ] Redis-backed rate limiting for API + auth

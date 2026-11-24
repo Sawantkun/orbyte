@@ -92,8 +92,9 @@ export async function updateCollection(ownerId: string, id: string, input: { nam
 
 /** Deletes the collection only. Its assets stay in the library (collectionId → NULL via FK). */
 export async function deleteCollection(ownerId: string, id: string): Promise<{ releasedAssets: number }> {
-  const c = await db.assetCollection.findFirst({ where: { id, ownerId }, select: { _count: { select: { assets: true } } } });
+  const c = await db.assetCollection.findFirst({ where: { id, ownerId }, select: { name: true, _count: { select: { assets: true } } } });
   if (!c) throw notFound("Collection");
   await db.assetCollection.deleteMany({ where: { id, ownerId } });
+  await recordActivity({ ownerId, action: "collection.deleted", entityType: "collection", entityId: id, metadata: { name: c.name } });
   return { releasedAssets: c._count.assets };
 }

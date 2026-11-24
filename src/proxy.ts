@@ -33,5 +33,6 @@ export const config = {
     "/collections/:path*",
     "/integrations/:path*",
     "/settings/:path*",
+    "/activity/:path*",
   ],
 };

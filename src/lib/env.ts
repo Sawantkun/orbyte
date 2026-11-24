@@ -24,6 +24,10 @@ const schema = z
     BETTER_AUTH_URL: z.url(),
     APPLICATION_URL: z.url(),
     ENCRYPTION_KEY: base64Key32,
+    /** Version number of ENCRYPTION_KEY; bump when rotating. */
+    ENCRYPTION_KEY_VERSION: z.coerce.number().int().min(1).max(1000).default(1),
+    /** Previous key (version − 1), kept only while rows are re-encrypted. */
+    ENCRYPTION_KEY_PREVIOUS: base64Key32.optional().or(z.literal("").transform(() => undefined)),
     OPENAI_API_KEY: optionalString,
     OPENAI_BASE_URL: z.url().default("https://api.openai.com"),
     /** Queue name; separate names isolate environments sharing one Redis. */

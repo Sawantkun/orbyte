@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { buildDailySeries } from "@/server/dashboard";
 import { formatDayKey, formatDuration, formatUsd } from "@/lib/format";
+import { costTick } from "@/components/usage/cost-chart";
+
+describe("cost chart ticks", () => {
+  it("keeps adjacent ticks distinct at small scales", () => {
+    const ticks = [0.00125, 0.0025, 0.00375, 0.005].map((v) => costTick(v, 0.005));
+    expect(new Set(ticks).size).toBe(4);
+    expect(ticks[1]).toBe("$0.0025");
+    expect(costTick(0, 0.005)).toBe("$0");
+    expect(costTick(0.25, 0.5)).toBe("$0.250");
+    expect(costTick(5, 8)).toBe("$5.00");
+    expect(costTick(120, 400)).toBe("$120");
+  });
+});
 
 describe("buildDailySeries", () => {
   const now = new Date("2026-11-24T15:00:00Z");

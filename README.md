@@ -2,7 +2,7 @@
 
 **Create. Connect. Organize.** — an intelligent workspace that connects AI workflows, automates creative processes, and organizes everything AI creates.
 
-> Status: **Milestone 4 (Asset manager)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> Status: **Milestone 5 (Integrations & analytics)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Requirements
 - Node.js ≥ 22, pnpm 11
@@ -22,7 +22,7 @@ pnpm worker                   # in a second terminal: runs workflow executions
 
 Files are stored under `./.storage` by default; set `STORAGE_PROVIDER="s3"` and the `STORAGE_*` variables for S3, Cloudflare R2 or MinIO.
 
-Running AI nodes needs `OPENAI_API_KEY` in `.env`. Without it, AI nodes fail with a clear "OpenAI isn't configured" error; everything else (inputs, conditions, transforms, HTTP, outputs) runs.
+AI nodes use the signed-in user's own OpenAI key (Integrations page) or, if none is connected, the server's `OPENAI_API_KEY`. With neither, AI nodes fail with a clear message; everything else (inputs, conditions, transforms, HTTP, outputs) runs.
 
 ## Scripts
 | Command | What it does |
@@ -35,5 +35,6 @@ Running AI nodes needs `OPENAI_API_KEY` in `.env`. Without it, AI nodes fail wit
 | `pnpm test:e2e` | Playwright against a production build on port 3100 (`*_test` DB) |
 | `pnpm check` | typecheck + lint + test + build |
 | `pnpm db:migrate` / `db:deploy` / `db:seed` / `db:studio` | Prisma workflows |
+| `pnpm secrets:rotate` | Re-encrypt stored API keys after changing `ENCRYPTION_KEY` (see `.env.example`) |
 
 Tests use `TEST_DATABASE_URL`, or `DATABASE_URL` with the database name suffixed `_test`. They refuse to run against any other database.

@@ -2,7 +2,9 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z, type ZodType } from "zod";
 import { auth } from "@/lib/auth";
+import { env } from "@/lib/env";
 import { AppError } from "./errors";
+import { API_LIMITS, consume, type ApiLimit } from "./rate-limit";
 
 /**
  * Route handler helpers. Every /api handler (except auth and health) goes
@@ -52,15 +54,38 @@ export function parseWith<S extends ZodType>(schema: S, value: unknown): z.infer
 
 type Handler<C> = (req: NextRequest, ctx: C & { user: ApiUser }) => Promise<Response>;
 
-export function withUser<C extends object>(handler: Handler<C>) {
+/**
+ * Authenticated route handler with per-user rate limiting. The bucket defaults
+ * to "read" for GET/HEAD and "write" otherwise; routes can choose a stricter one.
+ */
+export function withUser<C extends object>(handler: Handler<C>, options: { limit?: ApiLimit } = {}) {
   return async (req: NextRequest, ctx: C): Promise<Response> => {
     try {
+      // CSRF defence in depth (cookies are also SameSite=Lax): browsers send Origin on
+      // cross-site mutations, so reject any that doesn't match the app's own origin.
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        const origin = req.headers.get("origin");
+        if (origin && origin !== new URL(env.APPLICATION_URL).origin) {
+          return errorResponse(403, "FORBIDDEN_ORIGIN", "Cross-origin requests are not allowed");
+        }
+      }
       const session = await auth.api.getSession({ headers: req.headers });
       if (!session) return errorResponse(401, "UNAUTHORIZED", "Sign in to continue");
       const { id, email, name } = session.user;
+      const bucket = options.limit ?? (req.method === "GET" || req.method === "HEAD" ? "read" : "write");
+      const verdict = await consume(`api:${bucket}:${id}`, API_LIMITS[bucket]);
+      if (!verdict.allowed) {
+        const res = errorResponse(429, "RATE_LIMITED", "Too many requests. Please slow down.");
+        res.headers.set("Retry-After", String(verdict.retryAfter ?? 60));
+        return res;
+      }
       return await handler(req, { ...ctx, user: { id, email, name } });
     } catch (e) {
-      if (e instanceof AppError) return errorResponse(e.status, e.code, e.message, e.details);
+      if (e instanceof AppError) {
+        const res = errorResponse(e.status, e.code, e.message, e.details);
+        if (e.status === 416 && (e.details as { size?: number })?.size !== undefined) res.headers.set("Content-Range", `bytes */${(e.details as { size: number }).size}`);
+        return res;
+      }
       const ref = crypto.randomUUID().slice(0, 8);
       console.error(`[api] unhandled error ref=${ref}`, { path: new URL(req.url).pathname, name: (e as Error)?.name, code: (e as { code?: unknown })?.code });
       if (process.env.NODE_ENV !== "production") console.error(e);

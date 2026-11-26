@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Test-only values; no real secrets are needed in CI.
+  DATABASE_URL: postgresql://orbyte:orbyte@localhost:5432/orbyte
+  TEST_DATABASE_URL: postgresql://orbyte:orbyte@localhost:5432/orbyte_test
+  REDIS_URL: redis://localhost:6379
+  BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-1234
+  BETTER_AUTH_URL: http://localhost:3000
+  APPLICATION_URL: http://localhost:3000
+  ENCRYPTION_KEY: Y2ktb25seS1rZXktY2ktb25seS1rZXktMzJieXRlcyE=
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: Typecheck, lint, test, build, E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: orbyte, POSTGRES_PASSWORD: orbyte, POSTGRES_DB: orbyte_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U orbyte" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Write .env (CI values)
+        run: env | grep -E '^(DATABASE_URL|REDIS_URL|BETTER_AUTH_|APPLICATION_URL|ENCRYPTION_KEY)=' > .env
+      - name: Create application database
+        run: PGPASSWORD=orbyte psql -h localhost -U orbyte -d orbyte_test -c "CREATE DATABASE orbyte"
+      - run: pnpm prisma migrate deploy
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - name: Migration drift check
+        run: |
+          out=$(pnpm -s prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script)
+          echo "$out" | grep -q "empty migration" || { echo "$out"; echo "::error::Schema and migrations differ"; exit 1; }
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            test-results
+            playwright-report
+          retention-days: 7
+
+  docker:
+    name: Docker images + standalone smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: orbyte, POSTGRES_PASSWORD: orbyte, POSTGRES_DB: orbyte }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U orbyte" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build images
+        run: |
+          for t in app worker migrate; do
+            docker buildx build --target "$t" --load -t "orbyte-$t:ci" .
+          done
+      - name: Migrate
+        run: docker run --rm --network host -e DATABASE_URL orbyte-migrate:ci
+      - name: Start app and worker
+        run: |
+          common="-e DATABASE_URL -e REDIS_URL -e BETTER_AUTH_SECRET -e BETTER_AUTH_URL -e APPLICATION_URL -e ENCRYPTION_KEY"
+          docker run -d --name app --network host $common orbyte-app:ci
+          docker run -d --name worker --network host $common -e WORKER_HEALTH_PORT=3101 orbyte-worker:ci
+          for i in $(seq 1 60); do curl -fs localhost:3000/api/health && curl -fs localhost:3101/health && exit 0; sleep 2; done
+          docker logs app; docker logs worker; exit 1
+      - name: Smoke test (sign up, upload, thumbnail, range, CSP)
+        run: |
+          set -e
+          curl -fs -c jar -H "Origin: http://localhost:3000" -H "Content-Type: application/json" \
+            -d '{"name":"CI","email":"ci@example.test","password":"ci-password-123"}' localhost:3000/api/auth/sign-up/email >/dev/null
+          python3 -c "import zlib,struct;w=h=4;raw=b''.join(b'\x00'+b'\x8b\x5c\xf6'*w for _ in range(h));c=lambda t,d:struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d));open('t.png','wb').write(b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+c(b'IDAT',zlib.compress(raw))+c(b'IEND',b''))"
+          code=$(curl -s -o up.json -w "%{http_code}" -b jar -F "file=@t.png" localhost:3000/api/assets/upload); cat up.json; test "$code" = 201
+          id=$(python3 -c "import json;print(json.load(open('up.json'))['data']['id'])")
+          test "$(curl -s -o /dev/null -w '%{http_code}' -b jar "localhost:3000/api/assets/$id/content?variant=thumbnail")" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' -b jar -H 'Range: bytes=0-3' "localhost:3000/api/assets/$id/content")" = 206
+          curl -sI localhost:3000/login | grep -i "content-security-policy: .*nonce-"
+      - if: failure()
+        run: docker logs app; docker logs worker

@@ -29,9 +29,12 @@ export function contentResponse(c: Content, mode: "inline" | "attachment", cache
       : "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'; sandbox";
 
   return new Response(Readable.toWeb(c.body) as ReadableStream, {
+    status: c.range ? 206 : 200,
     headers: {
       "Content-Type": type,
-      "Content-Length": String(c.size),
+      "Content-Length": String(c.length),
+      "Accept-Ranges": "bytes",
+      ...(c.range ? { "Content-Range": `bytes ${c.range.start}-${c.range.end}/${c.size}` } : {}),
       "Content-Disposition": contentDisposition(disposition, c.name),
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": csp,

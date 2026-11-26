@@ -23,26 +23,35 @@ export function Palette({ onAdd }: { onAdd: (type: NodeType) => void }) {
                 const spec = NODE_SPECS[type];
                 const Icon = NODE_ICONS[type];
                 return (
-                  <button
+                  <div
                     key={type}
-                    type="button"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(DRAG_MIME, type);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    onClick={() => onAdd(type)}
-                    aria-label={`Add ${spec.label} node`}
-                    className="group flex w-full cursor-grab items-start gap-2.5 rounded-lg border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-elevated/60 active:cursor-grabbing"
+                    className="group relative flex w-full items-start gap-2.5 rounded-lg border border-transparent p-2 transition-colors hover:border-border hover:bg-elevated/60 has-[:focus-visible]:border-ring"
                   >
-                    <span className={cn("mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg", NODE_TONES[type])}>
+                    <span className={cn("mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg", NODE_TONES[type])} aria-hidden>
                       <Icon className="size-3.5" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[13px] font-medium">{spec.label}</span>
-                      <span className="block text-xs leading-snug text-muted-foreground">{spec.description}</span>
+                      {/* The button holds only the label; ::after stretches it over the whole card. */}
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData(DRAG_MIME, type);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onClick={() => onAdd(type)}
+                        aria-describedby={`palette-${type}-desc`}
+                        className="block cursor-grab text-left text-[13px] font-medium outline-none after:absolute after:inset-0 after:rounded-lg active:cursor-grabbing"
+                      >
+                        <span className="sr-only">Add </span>
+                        {spec.label}
+                        <span className="sr-only"> node</span>
+                      </button>
+                      <span id={`palette-${type}-desc`} className="block text-xs leading-snug text-muted-foreground">
+                        {spec.description}
+                      </span>
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>

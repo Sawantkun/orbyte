@@ -8,4 +8,4 @@ export const POST = withUser<RouteContext<"/api/workflows/[id]/execute">>(async 
   const body = await parseJson(req, executeWorkflowSchema);
   const { execution, created } = await startExecution(user.id, id, body);
   return ok(execution, { status: created ? 201 : 200 });
-});
+}, { limit: "execute" });

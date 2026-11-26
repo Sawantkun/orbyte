@@ -64,6 +64,8 @@
   --ob-elevated: #191e29;
   --ob-accent: #8b5cf6;
   --ob-accent-2: #a78bfa;
+  /* Accent for filled surfaces carrying white text: #7C3AED gives ≥ 4.5:1 contrast (WCAG AA). */
+  --ob-accent-strong: #7c3aed;
   --ob-text: #f5f5f7;
   --ob-text-2: #9298a5;
   --ob-border: #252a36;
@@ -78,7 +80,7 @@
   --card-foreground: var(--ob-text);
   --popover: var(--ob-elevated);
   --popover-foreground: var(--ob-text);
-  --primary: var(--ob-accent);
+  --primary: var(--ob-accent-strong);
   --primary-foreground: #ffffff;
   --secondary: var(--ob-elevated);
   --secondary-foreground: var(--ob-text);
@@ -100,7 +102,7 @@
   --radius: 0.625rem;
   --sidebar: var(--ob-bg-2);
   --sidebar-foreground: var(--ob-text);
-  --sidebar-primary: var(--ob-accent);
+  --sidebar-primary: var(--ob-accent-strong);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--ob-elevated);
   --sidebar-accent-foreground: var(--ob-text);

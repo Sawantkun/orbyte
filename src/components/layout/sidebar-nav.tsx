@@ -20,6 +20,7 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? item.title : undefined}
       className={cn(
         "group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors",
         active

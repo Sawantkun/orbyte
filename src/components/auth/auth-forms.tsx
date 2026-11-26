@@ -91,7 +91,7 @@ export function LoginForm({ next }: { next: string }) {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         New to Orbyte?{" "}
-        <Link href="/signup" className="text-foreground underline-offset-4 hover:underline">
+        <Link href="/signup" className="text-foreground underline underline-offset-4 hover:text-[var(--ob-accent-2)]">
           Create an account
         </Link>
       </p>
@@ -131,7 +131,7 @@ export function SignupForm() {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-foreground underline-offset-4 hover:underline">
+        <Link href="/login" className="text-foreground underline underline-offset-4 hover:text-[var(--ob-accent-2)]">
           Sign in
         </Link>
       </p>

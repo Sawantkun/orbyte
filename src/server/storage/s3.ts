@@ -1,7 +1,8 @@
+import { createReadStream } from "node:fs";
 import type { Readable } from "node:stream";
 import { DeleteObjectCommand, GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { isValidStorageKey } from "./keys";
-import { StorageError, type StorageAdapter, type StoredObject } from "./types";
+import { StorageError, type ByteRange, type StorageAdapter, type StoredObject } from "./types";
 
 export type S3Config = { bucket: string; region: string; accessKeyId: string; secretAccessKey: string; endpoint?: string };
 
@@ -27,12 +28,23 @@ export class S3Storage implements StorageAdapter {
     await this.client.send(new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: body, ContentType: contentType }));
   }
 
-  async get(key: string): Promise<StoredObject | null> {
+  async putFile(key: string, filePath: string, size: number, contentType: string) {
+    this.check(key);
+    // Single streamed PUT (S3 allows up to 5 GB, far above MAX_UPLOAD_BYTES).
+    await this.client.send(new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: createReadStream(filePath), ContentLength: size, ContentType: contentType }));
+  }
+
+  async get(key: string, range?: ByteRange): Promise<StoredObject | null> {
     this.check(key);
     try {
-      const res = await this.client.send(new GetObjectCommand({ Bucket: this.config.bucket, Key: key }));
+      const res = await this.client.send(
+        new GetObjectCommand({ Bucket: this.config.bucket, Key: key, ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}) }),
+      );
       if (!res.Body) return null;
-      return { body: res.Body as Readable, size: res.ContentLength ?? 0, contentType: res.ContentType ?? "application/octet-stream" };
+      const length = res.ContentLength ?? 0;
+      // "bytes 0-99/1234" → total size 1234
+      const total = range ? Number(res.ContentRange?.split("/")[1] ?? length) : length;
+      return { body: res.Body as Readable, size: total, length, contentType: res.ContentType ?? "application/octet-stream", ...(range ? { range } : {}) };
     } catch (e) {
       if (e instanceof NoSuchKey || (e as { name?: string }).name === "NoSuchKey") return null;
       throw e;

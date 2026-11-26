@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ActivityItem } from "@/lib/activity";
+import { Time } from "@/components/time";
 
 /** Shows the user's latest activity log entries. */
 export function Notifications({ items }: { items: ActivityItem[] }) {
@@ -42,7 +42,7 @@ export function Notifications({ items }: { items: ActivityItem[] }) {
               <Link href={item.href ?? "/activity"}>
                 <span className="text-sm">{item.label}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
+                  <Time iso={item.createdAt} />
                 </span>
               </Link>
             </DropdownMenuItem>

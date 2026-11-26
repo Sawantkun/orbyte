@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { CheckCircle2, ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -20,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiClientError, apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { Time } from "@/components/time";
 
 export type ProviderCard = { id: string; name: string; description: string; available: boolean; keyPlaceholder: string; docsUrl: string; platformKey: boolean };
 export type Integration = { id: string; provider: string; label: string; secretHint: string; status: "ACTIVE" | "INVALID" | "UNVERIFIED"; lastValidatedAt: string | null; createdAt: string };
@@ -114,7 +114,7 @@ function ProviderPanel({
   const st = integration ? STATUS[integration.status] : null;
 
   return (
-    <li className={cn("flex flex-col rounded-xl border border-border bg-card p-5", !provider.available && "opacity-60")} aria-label={provider.name}>
+    <li className={cn("flex flex-col rounded-xl border border-border bg-card p-5", !provider.available && "border-dashed bg-card/50")} aria-label={provider.name}>
       <div className="flex items-start gap-3">
         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-elevated">
           <KeyRound className="size-4 text-muted-foreground" />
@@ -138,7 +138,7 @@ function ProviderPanel({
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-xs">•••• •••• {integration.secretHint}</span>
             <span className="text-xs text-muted-foreground">
-              {integration.lastValidatedAt ? `Checked ${formatDistanceToNowStrict(new Date(integration.lastValidatedAt), { addSuffix: true })}` : "Not checked yet"}
+              {integration.lastValidatedAt ? <>Checked <Time iso={integration.lastValidatedAt} /></> : "Not checked yet"}
             </span>
           </div>
           {integration.status === "INVALID" && <p className="mt-2 text-xs text-destructive">Workflows can&apos;t use this key. Replace it with a working one.</p>}

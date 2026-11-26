@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import {
   Boxes,
   Check,
@@ -44,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { KindIcon } from "./kind-icon";
 import { thumbUrl, type AssetItem, type CollectionItem } from "./types";
 import { DropOverlay, UploadPanel, useUploader } from "./uploader";
+import { Time } from "@/components/time";
 
 const KIND_GROUPS = [
   { value: "", label: "All" },
@@ -421,7 +421,7 @@ export function AssetLibrary({
                   </td>
                   <td className="max-w-40 truncate px-3 py-2 text-muted-foreground">{a.workflowName ?? (a.source === "UPLOAD" ? "Upload" : "Workflow")}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs">{formatBytes(a.sizeBytes)}</td>
-                  <td className="px-3 py-2 text-right text-xs text-muted-foreground">{formatDistanceToNowStrict(new Date(a.createdAt), { addSuffix: true })}</td>
+                  <td className="px-3 py-2 text-right text-xs text-muted-foreground"><Time iso={a.createdAt} /></td>
                 </tr>
               ))}
             </tbody>

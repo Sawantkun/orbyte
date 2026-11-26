@@ -1,0 +1,76 @@
+# Production-style stack on one host. Provide secrets via an env file:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# For more than one host, use S3-compatible storage instead of the shared volume.
+x-env: &env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://orbyte:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/orbyte
+  REDIS_URL: redis://redis:6379
+  APPLICATION_URL: ${APPLICATION_URL:?set APPLICATION_URL}
+  BETTER_AUTH_URL: ${APPLICATION_URL}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY}
+  ENCRYPTION_KEY_VERSION: ${ENCRYPTION_KEY_VERSION:-1}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+  STORAGE_LOCAL_DIR: /app/.storage
+  STORAGE_BUCKET: ${STORAGE_BUCKET:-}
+  STORAGE_REGION: ${STORAGE_REGION:-}
+  STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-}
+  STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-}
+  STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-}
+  AUTH_IP_HEADERS: ${AUTH_IP_HEADERS:-}
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: orbyte
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: orbyte
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbyte"]
+      interval: 5s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+    restart: unless-stopped
+
+  migrate:
+    build: { context: ., target: migrate }
+    environment: *env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  app:
+    build: { context: ., target: app }
+    environment: *env
+    ports: ["3000:3000"]
+    volumes: [storage:/app/.storage]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., target: worker }
+    environment: *env
+    volumes: [storage:/app/.storage]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 2m # let in-flight executions finish
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:

@@ -2,7 +2,7 @@
 
 **Create. Connect. Organize.** — an intelligent workspace that connects AI workflows, automates creative processes, and organizes everything AI creates.
 
-> Status: **Milestone 5 (Integrations & analytics)** complete. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> Status: all six milestones complete. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) to run it in production and [`docs/SECURITY.md`](docs/SECURITY.md) for the security model. See [`docs/CHECKLIST.md`](docs/CHECKLIST.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Requirements
 - Node.js ≥ 22, pnpm 11

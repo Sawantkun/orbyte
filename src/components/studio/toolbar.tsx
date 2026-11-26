@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNowStrict } from "date-fns";
 import {
   AlertCircle,
   ArrowLeft,
@@ -30,6 +29,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { useStudio } from "./store";
 import { useValidation } from "./validation-context";
+import { Time } from "@/components/time";
 
 export type VersionInfo = { id: string; version: number; createdAt: string; nodeCount: number };
 
@@ -131,8 +131,9 @@ export function Toolbar({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label="Version history">
+            <Button variant="ghost" size="sm">
               <History /> <span className="hidden md:inline">Versions</span>
+              <span className="sr-only md:hidden">Versions</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -147,7 +148,7 @@ export function Toolbar({
                     Version {v.version} <span className="text-xs text-muted-foreground">· {v.nodeCount} nodes</span>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(v.createdAt), { addSuffix: true })} · restore to draft
+                    <Time iso={v.createdAt} /> · restore to draft
                   </span>
                 </DropdownMenuItem>
               ))

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Copy, Loader2, MoreHorizontal, Search, Trash2, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -22,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ApiClientError, apiFetch } from "@/lib/api-client";
+import { Time } from "@/components/time";
 
 export type WorkflowRow = {
   id: string;
@@ -154,7 +154,7 @@ export function WorkflowList({ initial, initialCursor, query }: { initial: Workf
                 </div>
                 <div className="hidden w-20 text-right font-mono text-xs text-muted-foreground sm:block">{w.latestVersion > 0 ? `v${w.latestVersion}` : "—"}</div>
                 <StatusBadge status={w.status} className="hidden sm:inline-flex" />
-                <div className="hidden w-32 text-right text-xs text-muted-foreground md:block">{formatDistanceToNowStrict(new Date(w.updatedAt), { addSuffix: true })}</div>
+                <div className="hidden w-32 text-right text-xs text-muted-foreground md:block"><Time iso={w.updatedAt} /></div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon-sm" className="relative z-10" aria-label={`Actions for ${w.name}`} disabled={busyId === w.id}>

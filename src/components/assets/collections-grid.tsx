@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { FolderKanban, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input";
 import { CollectionFormDialog, DeleteCollectionDialog } from "./collection-dialogs";
 import { thumbUrl, type CollectionItem } from "./types";
+import { Time } from "@/components/time";
 
 export function CollectionsGrid({ initial }: { initial: CollectionItem[] }) {
   const [items, setItems] = useState(initial);
@@ -57,7 +57,7 @@ export function CollectionsGrid({ initial }: { initial: CollectionItem[] }) {
                 <div className="px-4 py-3">
                   <div className="truncate font-medium">{c.name}</div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {c.assetCount} asset{c.assetCount === 1 ? "" : "s"} · updated {formatDistanceToNowStrict(new Date(c.updatedAt), { addSuffix: true })}
+                    {c.assetCount} asset{c.assetCount === 1 ? "" : "s"} · updated <Time iso={c.updatedAt} />
                   </div>
                 </div>
               </Link>

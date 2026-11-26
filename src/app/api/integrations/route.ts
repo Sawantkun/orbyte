@@ -10,4 +10,4 @@ const createSchema = z.object({
 
 export const GET = withUser(async (_req, { user }) => ok(await listIntegrations(user.id)));
 
-export const POST = withUser(async (req, { user }) => ok(await createIntegration(user.id, await parseJson(req, createSchema)), { status: 201 }));
+export const POST = withUser(async (req, { user }) => ok(await createIntegration(user.id, await parseJson(req, createSchema)), { status: 201 }), { limit: "credentials" });

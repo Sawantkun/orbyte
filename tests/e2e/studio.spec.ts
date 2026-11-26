@@ -104,7 +104,7 @@ test("publishing creates versions; invalid drafts are blocked; versions restore"
   await saved(page);
 
   // Restore v1 into the draft.
-  await page.getByRole("button", { name: "Version history" }).click();
+  await page.getByRole("button", { name: "Versions" }).click();
   await page.getByRole("menuitem", { name: /Version 1/ }).click();
   await page.getByRole("button", { name: "Restore" }).click();
   await expect(page.getByText("Draft restored from version 1")).toBeVisible();

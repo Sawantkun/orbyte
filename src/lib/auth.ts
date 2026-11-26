@@ -4,6 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { consume } from "@/server/rate-limit";
 
 export const auth = betterAuth({
   appName: "Orbyte",
@@ -27,6 +28,8 @@ export const auth = betterAuth({
   },
   rateLimit: {
     enabled: env.NODE_ENV !== "test" && env.AUTH_RATE_LIMIT === "on",
+    // Shared across app instances via Redis (atomic check-and-increment).
+    customStorage: { consume: (key, rule) => consume(`auth:${key}`, rule) },
     window: 60,
     max: 100,
     customRules: {
@@ -37,6 +40,10 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: env.NODE_ENV === "production",
+    ipAddress: {
+      ...(env.AUTH_IP_HEADERS ? { ipAddressHeaders: env.AUTH_IP_HEADERS.split(",").map((h) => h.trim()).filter(Boolean) } : {}),
+      ...(env.TRUSTED_PROXIES ? { trustedProxies: env.TRUSTED_PROXIES.split(",").map((p) => p.trim()).filter(Boolean) } : {}),
+    },
     database: { generateId: false }, // Prisma generates cuid ids
   },
   databaseHooks: {

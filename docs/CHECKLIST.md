@@ -75,8 +75,18 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Tests: crypto (tamper/AAD/rotation), integrations API + authz, credential precedence, usage aggregation + isolation, E2E keys/usage/activity
 - [ ] Multiple keys per provider (schema-ready, UI not exposed)
 
-## Milestone 6 — Production readiness
-- [ ] Redis-backed rate limiting for API + auth
-- [ ] CSP, audit of error surfaces, resource limits
-- [ ] Performance pass, accessibility pass, responsive polish
-- [ ] Dockerfile(s), deployment docs, CI pipeline
+## Milestone 6 — Production readiness ✅
+- [x] Redis-backed rate limiting (atomic Lua) for auth endpoints and per-user API buckets, with an in-process fallback; 429 + `Retry-After`
+- [x] Client-IP configuration for proxies (`AUTH_IP_HEADERS`, `TRUSTED_PROXIES`)
+- [x] Nonce-based Content-Security-Policy on every page; HSTS and `upgrade-insecure-requests` on https
+- [x] Origin check on mutating API requests (CSRF defence in depth)
+- [x] Streaming multipart uploads (busboy → temp file, size enforced mid-stream); storage `putFile`
+- [x] HTTP Range requests (206/416) for video/audio seeking
+- [x] Loading skeletons for every route; hydration-safe timestamps (`<Time>`)
+- [x] Accessibility: axe on all pages in E2E; fixed contrast, accessible names, colour-only links
+- [x] Standalone build + multi-target Dockerfile (app, worker, migrate), production compose file, health checks
+- [x] Fixed standalone tracing for `file-type` (found by running the standalone server)
+- [x] GitHub Actions CI: typecheck, lint, drift check, unit/integration, build, E2E; Docker build + smoke test
+- [x] Security audit (route auth, server actions, dangerous sinks, logging); `docs/SECURITY.md`, `docs/DEPLOYMENT.md`
+- [ ] Email verification, password reset and MFA (need an email provider; see SECURITY.md)
+- [ ] Semantic search with pgvector (designed in ADR-0003)

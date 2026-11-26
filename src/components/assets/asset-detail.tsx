@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { ArrowLeft, Download, ExternalLink, Loader2, Save, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { AssetDetail, AssetSummary } from "@/server/assets/service";
 import { KindIcon } from "./kind-icon";
 import { contentUrl, downloadUrl, thumbUrl, type CollectionItem } from "./types";
+import { Time } from "@/components/time";
 
 const TEXT_PREVIEW_LIMIT = 200_000;
 
@@ -106,7 +106,7 @@ export function AssetDetailView({ initial, related, collections }: { initial: As
             <h1 className="truncate text-2xl font-semibold tracking-tight">{asset.name}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {assetKindLabel(asset.kind)} · {formatBytes(asset.sizeBytes)}
-              {dims ? ` · ${dims}` : ""} · Added {format(new Date(asset.createdAt), "MMM d, yyyy")}
+              {dims ? ` · ${dims}` : ""} · Added <Time iso={asset.createdAt} pattern="MMM d, yyyy" />
             </p>
           </div>
           <div className="flex shrink-0 gap-2">

@@ -14,7 +14,7 @@ test("sign up, sign out, reject bad password, sign back in to the requested page
   await expect(page.getByRole("heading", { name: "Welcome back, Grace" })).toBeVisible();
   await expect(page.getByText("Created your Orbyte account").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("button", { name: /Account menu/ }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
 

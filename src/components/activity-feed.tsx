@@ -6,19 +6,24 @@ import { format, isToday, isYesterday } from "date-fns";
 import { Activity, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
+import { Time, useHydrated } from "@/components/time";
 import { Button } from "@/components/ui/button";
 import type { ActivityItem } from "@/lib/activity";
 import { apiFetch } from "@/lib/api-client";
 
-const dayLabel = (iso: string) => {
+const localDayLabel = (iso: string) => {
   const d = new Date(iso);
   return isToday(d) ? "Today" : isYesterday(d) ? "Yesterday" : format(d, "EEEE, MMM d");
 };
+/** Before hydration, group by UTC date so server and client markup match. */
+const utcDayLabel = (iso: string) => iso.slice(0, 10);
 
 export function ActivityFeed({ initial, initialCursor }: { initial: ActivityItem[]; initialCursor: string | null }) {
   const [items, setItems] = useState(initial);
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
+  const hydrated = useHydrated();
+  const dayLabel = hydrated ? localDayLabel : utcDayLabel;
 
   async function more() {
     if (!cursor) return;
@@ -65,9 +70,7 @@ export function ActivityFeed({ initial, initialCursor }: { initial: ActivityItem
                 ) : (
                   <span className="min-w-0 flex-1 truncate">{i.label}</span>
                 )}
-                <time dateTime={i.createdAt} className="shrink-0 font-mono text-xs text-muted-foreground">
-                  {format(new Date(i.createdAt), "HH:mm")}
-                </time>
+                <Time iso={i.createdAt} pattern="HH:mm" className="shrink-0 font-mono text-xs text-muted-foreground" />
               </li>
             ))}
           </ul>

@@ -111,6 +111,59 @@ describe("serving content", () => {
   });
 });
 
+describe("range requests and streaming uploads", () => {
+  it("serves partial content for seeking and rejects unsatisfiable ranges", async () => {
+    const { cookie } = await signedInUser();
+    const body = Buffer.from("0123456789".repeat(100)); // 1000 bytes
+    const a = (await (await uploadFile(cookie, "digits.txt", body)).json()).data;
+    const get = (range?: string) => {
+      const r = request(`/api/assets/${a.id}/content`, { cookie });
+      if (range) r.headers.set("range", range);
+      return content.GET(r, params({ id: a.id }));
+    };
+
+    const full = await get();
+    expect(full.status).toBe(200);
+    expect(full.headers.get("accept-ranges")).toBe("bytes");
+    expect(full.headers.get("content-length")).toBe("1000");
+
+    const part = await get("bytes=10-19");
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe("bytes 10-19/1000");
+    expect(part.headers.get("content-length")).toBe("10");
+    expect(await part.text()).toBe("0123456789");
+
+    const tail = await get("bytes=-4");
+    expect(await tail.text()).toBe("6789");
+
+    const bad = await get("bytes=5000-");
+    expect(bad.status).toBe(416);
+    expect(bad.headers.get("content-range")).toBe("bytes */1000");
+  });
+
+  it("stops oversized uploads while streaming and leaves no temp files", async () => {
+    const os = await import("node:os");
+    const before = fs.readdirSync(os.tmpdir()).filter((d) => d.startsWith("orbyte-upload-")).length;
+    const { cookie } = await signedInUser();
+    // No Content-Length (chunked body), so the limit must be enforced mid-stream.
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array(Buffer.alloc(2 * 1024 * 1024 + 10, 97))], "big.txt"));
+    const encoded = new Response(form);
+    const req = new NextRequest(new URL("/api/assets/upload", "http://localhost:3000"), {
+      method: "POST",
+      headers: { cookie, "content-type": encoded.headers.get("content-type")! },
+      body: encoded.body,
+      duplex: "half",
+      // Node requires duplex for streamed request bodies; Next's RequestInit type omits it.
+    } as unknown as ConstructorParameters<typeof NextRequest>[1]);
+    expect(req.headers.get("content-length")).toBeNull();
+    const res = await upload.POST(req, {} as never);
+    expect(res.status).toBe(413);
+    expect(fs.readdirSync(os.tmpdir()).filter((d) => d.startsWith("orbyte-upload-")).length).toBe(before);
+    expect(await db.asset.count()).toBe(0);
+  });
+});
+
 describe("library queries", () => {
   it("searches names, descriptions, tags, prompts and workflow names; filters and sorts", async () => {
     const { cookie, id: ownerId } = await signedInUser();

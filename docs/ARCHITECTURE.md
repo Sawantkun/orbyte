@@ -86,7 +86,7 @@ Layering rule: `app/` → `server/` → `lib/`. Components never import Prisma. 
   2. `src/server/session.ts` — the Data Access Layer. `requireUser()` validates the session against the DB on every request. Every page, action and route handler calls it.
   3. Service functions take `ownerId` explicitly and **always** filter by it (`where: { id, ownerId }`). Lookups of another user's id behave exactly like "not found" (no existence oracle).
 * Post-login redirects go through `safeRedirectPath()` to prevent open redirects.
-* Auth endpoints are rate-limited by Better Auth (sign-in 10/min, sign-up 5/min, change-password 5/min per IP; memory store — moves to Redis in Milestone 6).
+* Auth endpoints are rate-limited (sign-in 10/min, sign-up 5/min, change-password 5/min per IP) through the shared Redis limiter (ADR-0009).
 * Passwords: 10–128 chars, hashed by Better Auth (scrypt).
 
 ## 5. Database design
@@ -191,13 +191,13 @@ worker/index.ts (separate process) ◀──────────────
 |---|---|
 | Cross-user data access | Owner-scoped queries in `src/server/*`; integration tests assert isolation |
 | Session theft / fixation | httpOnly, SameSite=Lax, `Secure` in production; DB sessions; revocation UI |
-| Brute force | Better Auth rate limits on auth endpoints |
+| Brute force / abuse | Redis-backed rate limits on auth (per IP) and API (per user), local fallback if Redis is down |
 | Open redirect | `safeRedirectPath()` |
 | Secret leakage | Env validated at boot (names only in errors); provider keys AES-256-GCM with owner-bound AAD and rotation; never returned by APIs; redacted from node data and logs; `storageKey` never serialised |
 | SSRF (HTTP node, M3) | https/http only, DNS resolve then block private/loopback/link-local/metadata ranges (incl. IPv6 + mapped), re-check on redirect, size + time limits |
 | Arbitrary code | No JS/shell execution in nodes; Transform node uses a fixed set of declarative operations |
 | Uploads | Size limit before buffering, extension allowlist + magic-byte sniffing, canonical MIME, random owner-scoped keys, authorised streaming with sandbox CSP + nosniff |
-| Clickjacking / sniffing | `X-Frame-Options: DENY`, `nosniff`, strict referrer policy (next.config) |
+| XSS / clickjacking / CSRF | Nonce CSP with `strict-dynamic`, `frame-ancestors 'self'`, `nosniff`, HSTS on https, SameSite cookies + Origin check on API mutations |
 | Error leakage | Error boundaries show a digest only; server logs omit secrets |
 
 ## 10. Rendering model

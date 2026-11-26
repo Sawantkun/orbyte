@@ -6,6 +6,7 @@ import { recordActivity } from "../activity";
 import { AppError, notFound } from "../errors";
 import { getStorage, newStorageKey, thumbnailKeyFor } from "../storage";
 import { StorageError } from "../storage/types";
+import { parseRange } from "./range";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,10 @@ export type ListAssetsQuery = {
 
 export type NewAsset = {
   name: string;
-  buffer: Buffer;
+  /** Content in memory (generated outputs)… */
+  buffer?: Buffer;
+  /** …or on local disk (streamed uploads). Exactly one of the two is required. */
+  file?: { path: string; size: number };
   mimeType: string;
   extension: string | null;
   kind: AssetKind;
@@ -128,10 +132,10 @@ async function assertCollection(tx: Prisma.TransactionClient | typeof db, ownerI
 const THUMBNAIL_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"]);
 
 /** 480px WebP thumbnail + dimensions. Never throws: a bad image just gets no thumbnail. */
-export async function makeThumbnail(buffer: Buffer, mimeType: string): Promise<{ thumb: Buffer; width: number; height: number } | null> {
+export async function makeThumbnail(input: Buffer | string, mimeType: string): Promise<{ thumb: Buffer; width: number; height: number } | null> {
   if (!THUMBNAIL_TYPES.has(mimeType)) return null;
   try {
-    const img = sharp(buffer, { limitInputPixels: 64_000_000, animated: false }).timeout({ seconds: 10 });
+    const img = sharp(input, { limitInputPixels: 64_000_000, animated: false }).timeout({ seconds: 10 });
     const meta = await img.metadata();
     const thumb = await img.rotate().resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
     return { thumb, width: meta.width ?? 0, height: meta.height ?? 0 };
@@ -147,11 +151,14 @@ export async function createAsset(ownerId: string, input: NewAsset): Promise<Ass
   await assertCollection(db, ownerId, input.collectionId);
   const tags = normalizeTags(input.tags ?? []);
   const storage = getStorage();
+  if (!input.buffer === !input.file) throw new Error("createAsset needs exactly one of buffer or file");
+  const sizeBytes = input.buffer ? input.buffer.length : input.file!.size;
   const storageKey = newStorageKey(ownerId, input.extension);
-  const thumbnail = await makeThumbnail(input.buffer, input.mimeType);
+  const thumbnail = await makeThumbnail(input.buffer ?? input.file!.path, input.mimeType);
   const thumbnailKey = thumbnail ? thumbnailKeyFor(storageKey) : null;
 
-  await storage.put(storageKey, input.buffer, input.mimeType);
+  if (input.buffer) await storage.put(storageKey, input.buffer, input.mimeType);
+  else await storage.putFile(storageKey, input.file!.path, input.file!.size, input.mimeType);
   if (thumbnail && thumbnailKey) await storage.put(thumbnailKey, thumbnail.thumb, "image/webp");
 
   try {
@@ -166,7 +173,7 @@ export async function createAsset(ownerId: string, input: NewAsset): Promise<Ass
           source: input.source,
           mimeType: input.mimeType,
           extension: input.extension,
-          sizeBytes: input.buffer.length,
+          sizeBytes,
           storageKey,
           thumbnailKey,
           collectionId: input.collectionId ?? null,
@@ -277,14 +284,17 @@ export async function relatedAssets(ownerId: string, asset: AssetDetail, take = 
   return rows.map(toSummary);
 }
 
-export async function openAssetContent(ownerId: string, id: string, variant: "original" | "thumbnail") {
-  const a = await db.asset.findFirst({ where: { id, ownerId }, select: { name: true, mimeType: true, extension: true, storageKey: true, thumbnailKey: true } });
+export async function openAssetContent(ownerId: string, id: string, variant: "original" | "thumbnail", rangeHeader: string | null = null) {
+  const a = await db.asset.findFirst({ where: { id, ownerId }, select: { name: true, mimeType: true, extension: true, storageKey: true, thumbnailKey: true, sizeBytes: true } });
   if (!a) throw notFound("Asset");
   const key = variant === "thumbnail" ? a.thumbnailKey : a.storageKey;
   if (!key) throw notFound("Thumbnail");
+  // Ranges apply to originals only (video/audio seeking); thumbnails are always whole.
+  const range = variant === "original" ? parseRange(rangeHeader, a.sizeBytes) : null;
+  if (range === "unsatisfiable") throw new AppError(416, "RANGE_NOT_SATISFIABLE", "Requested range not satisfiable", { size: a.sizeBytes });
   let obj;
   try {
-    obj = await getStorage().get(key);
+    obj = await getStorage().get(key, range ?? undefined);
   } catch (e) {
     if (e instanceof StorageError) obj = null;
     else throw e;

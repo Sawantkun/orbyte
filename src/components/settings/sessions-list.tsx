@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { revokeSession } from "@/app/(app)/settings/actions";
@@ -18,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Time } from "@/components/time";
 
 export type SessionRow = {
   id: string;
@@ -58,7 +58,7 @@ export function SessionsList({ sessions }: { sessions: SessionRow[] }) {
                 {s.current && <Badge variant="secondary">This device</Badge>}
               </div>
               <p className="truncate text-xs text-muted-foreground">
-                {s.ipAddress} · Active {formatDistanceToNowStrict(new Date(s.lastActive), { addSuffix: true })}
+                {s.ipAddress} · Active <Time iso={s.lastActive} />
               </p>
             </div>
             {!s.current && (

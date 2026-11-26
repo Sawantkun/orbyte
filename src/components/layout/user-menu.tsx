@@ -39,8 +39,8 @@ export function UserMenu({ user, collapsed = false }: { user: ShellUser; collaps
           "flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors outline-none hover:bg-elevated/60 focus-visible:ring-2 focus-visible:ring-ring",
           collapsed && "justify-center",
         )}
-        aria-label="Account menu"
       >
+        <span className="sr-only">Account menu</span>
         <UserAvatar name={user.name} image={user.image} />
         {!collapsed && (
           <>

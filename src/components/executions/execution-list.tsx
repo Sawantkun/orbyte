@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -13,6 +12,7 @@ import { ApiClientError, apiFetch } from "@/lib/api-client";
 import { formatCount, formatDuration, formatUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ExecutionSummary } from "@/server/executions";
+import { Time } from "@/components/time";
 
 const FILTERS = [
   { value: "", label: "All" },
@@ -117,7 +117,7 @@ export function ExecutionList({ initial, initialCursor, status }: { initial: Exe
                   <td className="px-4 py-3">
                     <StatusBadge status={e.status} />
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDistanceToNowStrict(new Date(e.createdAt), { addSuffix: true })}</td>
+                  <td className="px-4 py-3 text-muted-foreground"><Time iso={e.createdAt} /></td>
                   <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">{formatDuration(e.durationMs)}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">{e.inputTokens + e.outputTokens > 0 ? formatCount(e.inputTokens + e.outputTokens) : "—"}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">{e.estimatedCostUsd === null ? "—" : formatUsd(e.estimatedCostUsd)}</td>

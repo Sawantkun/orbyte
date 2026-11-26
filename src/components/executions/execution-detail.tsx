@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
 import { Background, BackgroundVariant, Controls, ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/style.css";
 import { AlertCircle, ArrowLeft, Ban, Check, Copy, Loader2, RotateCcw } from "lucide-react";
@@ -29,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { NODE_SPECS } from "@/lib/workflow/registry";
 import { NODE_TYPES, type NodeType } from "@/lib/workflow/schema";
 import type { ExecutionDetail, NodeRun } from "@/server/executions";
+import { Time } from "@/components/time";
 
 const nodeTypes = Object.fromEntries(NODE_TYPES.map((t) => [t, StudioNodeComponent]));
 const ACTIVE = new Set(["PENDING", "RUNNING"]);
@@ -143,7 +143,7 @@ export function ExecutionDetailView({ initial }: { initial: ExecutionDetail }) {
                   ·{" "}
                 </>
               ) : null}
-              Started {format(new Date(exec.createdAt), "MMM d, HH:mm:ss")} ·{" "}
+              Started <Time iso={exec.createdAt} pattern="MMM d, HH:mm:ss" /> ·{" "}
               <Link className="underline-offset-2 hover:underline" href={`/workflows/${exec.workflowId}`}>
                 Open workflow
               </Link>

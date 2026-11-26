@@ -1,4 +1,6 @@
-import { fileTypeFromBuffer } from "file-type";
+import { createReadStream } from "node:fs";
+import fs from "node:fs/promises";
+import { fileTypeFromBuffer, fileTypeFromFile } from "file-type";
 import type { AssetKind } from "@/generated/prisma/client";
 
 /**
@@ -62,10 +64,51 @@ export function extensionOf(filename: string): string | null {
   return m ? m[1] : null;
 }
 
-function isUtf8Text(buf: Buffer): boolean {
-  if (buf.includes(0)) return false;
+/** Where an upload's bytes live: memory (tests, small payloads) or a temp file (streamed uploads). */
+export type FileSource = {
+  size: number;
+  sniff(): Promise<{ mime: string } | undefined>;
+  head(n: number): Promise<Buffer>;
+  chunks(): AsyncIterable<Buffer>;
+  text(): Promise<string>;
+};
+
+export const bufferSource = (buf: Buffer): FileSource => ({
+  size: buf.length,
+  sniff: () => fileTypeFromBuffer(buf),
+  head: async (n) => buf.subarray(0, n),
+  chunks: async function* () {
+    yield buf;
+  },
+  text: async () => buf.toString("utf8"),
+});
+
+export const fileSource = (filePath: string, size: number): FileSource => ({
+  size,
+  sniff: () => fileTypeFromFile(filePath),
+  head: async (n) => {
+    const fh = await fs.open(filePath, "r");
+    try {
+      const out = Buffer.alloc(Math.min(n, size));
+      await fh.read(out, 0, out.length, 0);
+      return out;
+    } finally {
+      await fh.close();
+    }
+  },
+  chunks: () => createReadStream(filePath, { highWaterMark: 64 * 1024 }),
+  text: () => fs.readFile(filePath, "utf8"),
+});
+
+/** Streaming UTF-8 validation: no NUL bytes, no invalid sequences. */
+async function isUtf8Text(src: FileSource): Promise<boolean> {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
   try {
-    new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    for await (const chunk of src.chunks()) {
+      if (chunk.includes(0)) return false;
+      decoder.decode(chunk, { stream: true });
+    }
+    decoder.decode();
     return true;
   } catch {
     return false;
@@ -74,23 +117,23 @@ function isUtf8Text(buf: Buffer): boolean {
 
 export type ClassifiedFile = { extension: string; mimeType: string; kind: AssetKind };
 
-export async function classifyUpload(filename: string, buf: Buffer): Promise<ClassifiedFile> {
-  if (buf.length === 0) throw new UploadRejected("EMPTY_FILE", "The file is empty.");
+export async function classifySource(filename: string, src: FileSource): Promise<ClassifiedFile> {
+  if (src.size === 0) throw new UploadRejected("EMPTY_FILE", "The file is empty.");
   const extension = extensionOf(filename);
   const rule = extension ? ALLOWED[extension] : undefined;
   if (!extension || !rule) throw new UploadRejected("UNSUPPORTED_TYPE", `Files of type ${extension ? `.${extension}` : "(no extension)"} aren't supported.`);
 
-  const sniffed = await fileTypeFromBuffer(buf);
+  const sniffed = await src.sniff();
   if (rule.sniff === "text") {
-    if (sniffed || !isUtf8Text(buf)) throw new UploadRejected("TYPE_MISMATCH", `The file content doesn't match .${extension}.`);
+    if (sniffed || !(await isUtf8Text(src))) throw new UploadRejected("TYPE_MISMATCH", `The file content doesn't match .${extension}.`);
     if (extension === "json") {
       try {
-        JSON.parse(buf.toString("utf8"));
+        JSON.parse(await src.text());
       } catch {
         throw new UploadRejected("INVALID_CONTENT", "The file isn't valid JSON.");
       }
     }
-    if (extension === "svg" && !/<svg[\s>]/i.test(buf.subarray(0, 4096).toString("utf8"))) {
+    if (extension === "svg" && !/<svg[\s>]/i.test((await src.head(4096)).toString("utf8"))) {
       throw new UploadRejected("INVALID_CONTENT", "The file isn't a valid SVG.");
     }
   } else if (!sniffed || !rule.sniff.includes(sniffed.mime)) {
@@ -98,6 +141,8 @@ export async function classifyUpload(filename: string, buf: Buffer): Promise<Cla
   }
   return { extension, mimeType: rule.mime, kind: rule.kind };
 }
+
+export const classifyUpload = (filename: string, buf: Buffer) => classifySource(filename, bufferSource(buf));
 
 /** Kind for workflow-generated content where we choose the MIME type ourselves. */
 export function kindForMime(mime: string): AssetKind {

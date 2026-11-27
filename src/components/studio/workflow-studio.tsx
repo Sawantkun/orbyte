@@ -24,6 +24,7 @@ import { StudioStoreContext, createStudioStore, useStudio, useStudioApi } from "
 import { RunDialog } from "./run-dialog";
 import { Toolbar, type VersionInfo } from "./toolbar";
 import { ValidationProvider } from "./validation-context";
+import { LastRunProvider } from "./last-run";
 
 export type StudioWorkflow = {
   id: string;
@@ -274,7 +275,14 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
             <Palette onAdd={addAtCenter} />
           </aside>
           <div ref={canvasRef} className="relative min-w-0 flex-1" aria-label="Workflow canvas">
-            <Canvas />
+            <LastRunProvider workflowId={workflow.id}>
+              {(bar) => (
+                <>
+                  <Canvas />
+                  {bar && <div className="pointer-events-none absolute top-3 left-3 z-10">{bar}</div>}
+                </>
+              )}
+            </LastRunProvider>
             {nodes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="rounded-xl border border-dashed border-border bg-card/80 px-6 py-5 text-center backdrop-blur">

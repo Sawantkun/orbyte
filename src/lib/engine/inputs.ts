@@ -15,6 +15,10 @@ export function coerceInputs(schema: InputField[], raw: Record<string, unknown>)
       continue;
     }
     switch (field.type) {
+      case "image":
+        if (typeof v !== "string" || !/^[a-z0-9]{20,40}$/.test(v)) errors[field.name] = "Upload an image";
+        else values[field.name] = v;
+        break;
       case "text":
       case "file":
         if (typeof v !== "string") errors[field.name] = "Must be text";

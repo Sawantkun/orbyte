@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import "dotenv/config";
+import path from "node:path";
 
 const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -21,6 +22,11 @@ const shared = {
   // Both the app (key validation) and the worker (runs) talk to the mock OpenAI.
   OPENAI_BASE_URL: "http://127.0.0.1:3199",
   OPENAI_API_KEY: "sk-e2e-test-key",
+  // Emails (Send Email node, account emails) are rendered but never sent.
+  MAIL_TRANSPORT: "json",
+  SEMANTIC_SEARCH: "off",
+  // Personal-use local Claude CLI provider (switched on in the UI), pointed at a fake executable.
+  CLAUDE_CLI_PATH: path.resolve("tests/support/fake-claude.mjs"),
 };
 
 export default defineConfig({

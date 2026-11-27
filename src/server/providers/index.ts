@@ -2,6 +2,8 @@ import "server-only";
 import { env } from "@/lib/env";
 import { NodeError } from "../engine/errors";
 import { markIntegrationInvalid, resolveUserSecret } from "../integrations";
+import { canUseLocalClaude } from "../local-claude";
+import { ClaudeCliProvider } from "./claude-cli";
 import { OpenAIProvider } from "./openai";
 import type { ProviderResolver, ResolvedProvider } from "./types";
 
@@ -44,9 +46,25 @@ function unsupported(providerId: string): never {
   throw new NodeError("PROVIDER_UNSUPPORTED", `Provider "${providerId}" can't run workflows yet.`, false);
 }
 
+/** Personal use: the owner's signed-in Claude Code CLI on this machine (see claude-cli.ts, local-claude.ts). */
+async function resolveClaudeCli(ownerId: string): Promise<ResolvedProvider<ClaudeCliProvider>> {
+  const access = await canUseLocalClaude(ownerId);
+  if (!access.ok) {
+    const message = {
+      off: "The local Claude CLI is disabled on this instance.",
+      not_enabled: "Claude (local CLI) is off. Switch it on in Integrations.",
+      other_owner: "Claude (local CLI) is reserved for the account that switched it on.",
+    }[access.reason];
+    throw new NodeError("PROVIDER_NOT_CONFIGURED", message, false);
+  }
+  return { provider: new ClaudeCliProvider(env.CLAUDE_CLI_PATH), secrets: [], source: "local-cli" };
+}
+
 export const defaultProviders: ProviderResolver = {
   async text(providerId, ownerId) {
-    return providerId === "openai" ? resolveOpenAI(ownerId) : unsupported(providerId);
+    if (providerId === "openai") return resolveOpenAI(ownerId);
+    if (providerId === "claude-cli") return resolveClaudeCli(ownerId);
+    return unsupported(providerId);
   },
   async image(providerId, ownerId) {
     return providerId === "openai" ? resolveOpenAI(ownerId) : unsupported(providerId);

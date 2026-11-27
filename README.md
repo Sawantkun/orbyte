@@ -22,6 +22,14 @@ pnpm worker                   # in a second terminal: runs workflow executions
 
 Files are stored under `./.storage` by default; set `STORAGE_PROVIDER="s3"` and the `STORAGE_*` variables for S3, Cloudflare R2 or MinIO.
 
+**No OpenAI key? Use your Claude Code subscription (personal use only).** If Claude Code is installed and signed in on this machine, go to **Integrations → Add service → Claude (local CLI)** and turn it on, then pick that provider in an AI Text node. Only the account that turns it on can use it. Runs go through your own `claude` CLI with no tools, settings or MCP servers, and can include an image (AI Text's **Image** field, e.g. `{{photo}}` from an Image input). Set `LOCAL_CLAUDE_CLI="off"` on any deployment other people use; Anthropic doesn't allow offering Claude subscription logins to other users.
+
+**Email from workflows.** Add **Gmail** in Integrations (address + Google app password), then use the **Send Email** node: plain text or HTML, attachments from your library or generated images. New Send Email nodes start in preview mode, so runs show the email without sending it until you switch preview off.
+
+**Account email.** Set `SYSTEM_MAIL_USER` / `SYSTEM_MAIL_PASSWORD` (a Gmail app password) for email verification and password reset. Without them, in development the emails and their links are printed to the `pnpm dev` console.
+
+**Semantic search.** With an OpenAI key (yours in Integrations, or `OPENAI_API_KEY`), the worker embeds assets and library search also matches by meaning ("purple dashboard" finds "violet analytics screen"). Run `pnpm assets:reindex` once for existing assets. Without a key, search is keyword-only and says so.
+
 AI nodes use the signed-in user's own OpenAI key (Integrations page) or, if none is connected, the server's `OPENAI_API_KEY`. With neither, AI nodes fail with a clear message; everything else (inputs, conditions, transforms, HTTP, outputs) runs.
 
 ## Scripts

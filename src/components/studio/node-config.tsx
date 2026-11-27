@@ -86,6 +86,18 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
             <TemplateInput label="System instructions" rows={3} value={str(c.systemPrompt)} onChange={(v) => onChange({ systemPrompt: v })} references={references} placeholder="You are a helpful assistant…" />
           )}
           <TemplateInput label="Prompt" rows={6} value={str(c.prompt)} onChange={(v) => onChange({ prompt: v })} references={references} error={errorFor("prompt")} />
+          {type === "ai_text" && (
+            <TemplateInput
+              label="Image (optional)"
+              rows={1}
+              value={str(c.image)}
+              onChange={(v) => onChange({ image: v })}
+              references={references}
+              error={errorFor("image")}
+              placeholder="{{photo}}"
+              hint="An Image input or a generated image for the model to look at."
+            />
+          )}
           {type === "ai_text" ? (
             <div className="grid grid-cols-2 gap-2">
               {findModel(provider, str(c.model))?.supportsTemperature ? (
@@ -171,6 +183,41 @@ export function NodeConfigForm({ type, config: c, onChange, references, issues }
             <SelectInput label="Response" value={str(c.responseType) as "json" | "text"} options={opts(["json", "text"] as const, (v) => v.toUpperCase())} onChange={(v) => onChange({ responseType: v })} />
           </div>
           <p className="text-xs text-muted-foreground">Requests to private networks, localhost and cloud metadata endpoints are blocked.</p>
+        </>
+      );
+
+    case "send_email":
+      return (
+        <>
+          <TemplateInput label="To" rows={1} value={str(c.to)} onChange={(v) => onChange({ to: v })} references={references} error={errorFor("to")} placeholder="someone@example.com, {{recipient}}" hint="Up to 10 addresses, separated by commas." />
+          <TemplateInput label="Subject" rows={1} value={str(c.subject)} onChange={(v) => onChange({ subject: v })} references={references} error={errorFor("subject")} />
+          <SelectInput label="Format" value={(str(c.format) || "text") as "text" | "html"} options={[{ value: "text", label: "Plain text" }, { value: "html", label: "HTML" }]} onChange={(v) => onChange({ format: v })} />
+          <TemplateInput
+            label="Body"
+            rows={8}
+            value={str(c.body)}
+            onChange={(v) => onChange({ body: v })}
+            references={references}
+            error={errorFor("body")}
+            placeholder={c.format === "html" ? "<p>Hi!</p><p>{{text_1.text}}</p>" : "{{text_1.text}}"}
+            hint={c.format === "html" ? "Sent as HTML with an automatic plain-text version." : undefined}
+          />
+          <TemplateInput
+            label="Attachments (optional)"
+            rows={1}
+            value={str(c.attachments)}
+            onChange={(v) => onChange({ attachments: v })}
+            references={references}
+            placeholder="{{photo}}"
+            hint="Files from your library or generated images. Up to 5 files, 20 MB in total."
+          />
+          <SwitchInput
+            label="Preview only"
+            hint={c.preview === false ? "Off: runs send a real email from your connected Gmail." : "On: runs show the email without sending it. Turn off to send."}
+            checked={c.preview !== false}
+            onChange={(v) => onChange({ preview: v })}
+          />
+          <p className="text-xs text-muted-foreground">Sends from the Gmail connected in Integrations. Outputs <code className="font-mono">sent</code>, <code className="font-mono">to</code>, <code className="font-mono">subject</code>, <code className="font-mono">body</code>.</p>
         </>
       );
 

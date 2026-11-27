@@ -78,7 +78,7 @@ export default async function UsagePage({ searchParams }: PageProps<"/settings/u
                       <td className="px-5 py-2.5 font-mono text-xs">{m.model}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{formatCount(m.requests)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{formatCount(m.inputTokens + m.outputTokens)}</td>
-                      <td className="px-5 py-2.5 text-right font-mono text-xs">{m.costUsd === null ? <span className="text-muted-foreground">no pricing</span> : formatUsd(m.costUsd)}</td>
+                      <td className="px-5 py-2.5 text-right font-mono text-xs">{m.costUsd !== null ? formatUsd(m.costUsd) : <span className="text-muted-foreground">{m.provider === "claude-cli" ? "subscription" : "no pricing"}</span>}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -30,6 +30,23 @@ const schema = z
     ENCRYPTION_KEY_PREVIOUS: base64Key32.optional().or(z.literal("").transform(() => undefined)),
     OPENAI_API_KEY: optionalString,
     OPENAI_BASE_URL: z.url().default("https://api.openai.com"),
+    /**
+     * Local Claude CLI provider (personal use). "allow" (default): the owner can
+     * switch it on from the Integrations page; "off": hard-disabled for everyone.
+     */
+    /** Gmail account Orbyte sends account emails from (verification, password reset). Optional in development. */
+    SYSTEM_MAIL_USER: z.string().email().optional(),
+    SYSTEM_MAIL_PASSWORD: z.string().min(16).optional(),
+    /** "on": new accounts must verify their email before signing in. */
+    REQUIRE_EMAIL_VERIFICATION: z.enum(["on", "off"]).default("off"),
+    /** Semantic asset search: "auto" uses an OpenAI key when one is available; "off" disables it. */
+    SEMANTIC_SEARCH: z.enum(["auto", "off"]).default("auto"),
+    OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
+    /** "smtp" sends real email; "json" renders without sending (automated tests). */
+    MAIL_TRANSPORT: z.enum(["smtp", "json"]).default("smtp"),
+    LOCAL_CLAUDE_CLI: z.enum(["allow", "off"]).default("allow"),
+    /** Path to the `claude` executable (defaults to the one on PATH). */
+    CLAUDE_CLI_PATH: z.string().min(1).default("claude"),
     /** Queue name; separate names isolate environments sharing one Redis. */
     EXECUTION_QUEUE_NAME: z.string().regex(/^[a-z0-9-]{1,60}$/).default("workflow-executions"),
     /** If set, the worker serves GET /health on this port (liveness probes). */

@@ -5,6 +5,8 @@ export type TextGenerationRequest = {
   maxOutputTokens: number;
   /** Only sent when the model supports it (see the model catalogue). */
   temperature?: number;
+  /** Images for the model to look at (already size-limited by the engine). */
+  images?: { data: Buffer; mimeType: string }[];
   signal: AbortSignal;
 };
 
@@ -40,7 +42,7 @@ export interface ImageProvider {
 }
 
 /** A provider client plus the secrets to redact and where the credential came from. */
-export type ResolvedProvider<P> = { provider: P; secrets: string[]; source?: "user" | "platform" };
+export type ResolvedProvider<P> = { provider: P; secrets: string[]; source?: "user" | "platform" | "local-cli" };
 
 /** Resolves a provider client for a user. Throws NodeError("PROVIDER_NOT_CONFIGURED") if no credential exists. */
 export type ProviderResolver = {

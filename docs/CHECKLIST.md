@@ -18,7 +18,7 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Security headers, safe redirects, health endpoint
 - [x] Tests: unit, DB integration (auth, authorization, isolation, cascades), Playwright E2E
 - [x] Dev seed (`pnpm db:seed`), docker-compose for Postgres/Redis
-- [ ] Email verification & password reset (needs an email provider — decide in M6)
+- [x] Email verification & password reset (Milestone 7)
 
 ## Milestone 2 — Workflow Studio ✅
 - [x] Workflow definition schema v1 (Zod), per-node config schemas, size limits (`src/lib/workflow/schema.ts`)
@@ -32,7 +32,7 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Live validation panel; publish/versions/restore UI; responsive panels (sheets below `lg`)
 - [x] Workflow list page (search, load more, duplicate, delete with confirm), create page with starters
 - [x] Tests: validator, URL safety, templates, editor store, API authz/validation/concurrency/versioning, E2E Studio flows
-- [ ] Execution status overlay on nodes — needs execution data (Milestone 3)
+- [x] Execution status overlay on nodes (run page, and the Studio's "Last run" overlay — Milestone 7)
 
 ## Milestone 3 — Execution engine ✅
 - [x] Worker process (`worker/index.ts`): BullMQ 6 + Redis, configurable concurrency, graceful shutdown, stalled-job re-delivery, optional `/health`
@@ -47,7 +47,7 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] API: execute (input validation against version schema, idempotency keys), list/filter, detail, cancel, retry; 503 when the queue is down
 - [x] UI: Run dialog (typed inputs), executions list (status filters, live refresh), execution detail (live graph with node status, per-node attempts/input/output/logs, cancel/retry)
 - [x] Tests: engine semantics, SSRF client, OpenAI adapter, executions API, real Redis round-trip, E2E through a real worker and a mock OpenAI server
-- [ ] Per-user provider keys (Milestone 5) — the engine currently uses the server's `OPENAI_API_KEY`
+- [x] Per-user provider keys (done in Milestone 5)
 
 ## Milestone 4 — Asset manager ✅
 - [x] Storage abstraction: local adapter (dev) + S3-compatible adapter (AWS S3, R2, MinIO); unguessable owner-scoped keys; path-traversal-proof
@@ -61,19 +61,19 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Collections: create/rename/delete (assets kept), covers (explicit or newest image), counts, search, collection pages with remove-from-collection
 - [x] Workflow outputs → assets: AI Image node (OpenAI Images API) stores every image with prompt/provider/model/workflow/execution/node; Output node saves text/JSON or files generated upstream, into a chosen collection, with metadata
 - [x] Tests: upload validation, storage keys, S3 adapter commands, API authz/headers/filters/bulk/collections, engine → library pipeline, E2E library/collections/generated images
-- [ ] Video seeking via HTTP Range requests (previews play, scrubbing is limited)
-- [ ] Semantic search (pgvector) — architecture documented, not built
+- [x] Video seeking via HTTP Range requests (done in Milestone 6)
+- [x] Semantic search (Milestone 7; float arrays now, pgvector later — ADR-0003)
 
 ## Milestone 5 — Integrations & analytics ✅
 - [x] AES-256-GCM credential sealing with owner/provider-bound AAD, per-row IV/tag, key versions and a rotation script (`pnpm secrets:rotate`)
 - [x] Integrations API: connect (format check + zero-cost validation), replace, re-check, remove; secrets never returned
 - [x] Engine credential precedence: user key → platform key → clear error; keys rejected at run time are marked INVALID; resolved keys are redacted everywhere
-- [x] Integrations page: status, hint, last checked, replace/re-check/remove with confirmation; Anthropic and Gemini shown as "coming soon"
+- [x] Integrations page: status, hint, last checked, replace/re-check/remove with confirmation
 - [x] Usage analytics (`/settings/usage`): 7/30/90-day totals, cost per day, by model, by workflow; unpriced usage reported separately
 - [x] Activity: paginated `/activity` page grouped by day, linked items, more event types (key replaced, collection deleted, assets deleted), "view all" from the bell and dashboard
 - [x] Removed milestone gating (all features live)
 - [x] Tests: crypto (tamper/AAD/rotation), integrations API + authz, credential precedence, usage aggregation + isolation, E2E keys/usage/activity
-- [ ] Multiple keys per provider (schema-ready, UI not exposed)
+- [x] Multiple keys per provider (Milestone 7)
 
 ## Milestone 6 — Production readiness ✅
 - [x] Redis-backed rate limiting (atomic Lua) for auth endpoints and per-user API buckets, with an in-process fallback; 429 + `Retry-After`
@@ -88,5 +88,21 @@ Legend: `[x]` done and tested · `[ ]` not started · `[~]` partial (see note)
 - [x] Fixed standalone tracing for `file-type` (found by running the standalone server)
 - [x] GitHub Actions CI: typecheck, lint, drift check, unit/integration, build, E2E; Docker build + smoke test
 - [x] Security audit (route auth, server actions, dangerous sinks, logging); `docs/SECURITY.md`, `docs/DEPLOYMENT.md`
-- [ ] Email verification, password reset and MFA (need an email provider; see SECURITY.md)
-- [ ] Semantic search with pgvector (designed in ADR-0003)
+- [x] Email verification, password reset and two-factor sign-in (Milestone 7)
+- [x] Semantic search (Milestone 7)
+
+## Milestone 7 — Claude, images, email and account security ✅
+- [x] Claude (local CLI) provider: owner-only switch in Integrations, isolated CLI (no tools/settings/MCP, empty cwd, allow-listed env), stream-json I/O, error mapping, cancel kills the process
+- [x] Image input type; Run dialog upload or pick from the library; AI Text "Image" field (OpenAI and Claude), owner-checked and downscaled
+- [x] Send Email node via Gmail (app password, encrypted): preview mode by default, plain text or HTML (+ text fallback), attachments, recipient/size limits, header-injection guard
+- [x] Integrations redesign: only added services shown; "Add service" catalogue (AI, email, messaging, storage, docs & data, developer) with search, filters and honest "coming soon" / "built in" badges
+- [x] Multiple credentials per provider: names, one default (enforced by a partial unique index), switch default, rename, promote on delete
+- [x] Studio "Last run" overlay: latest run's per-node status on the canvas, live while running
+- [x] Email verification and password reset (Better Auth), system mail via Gmail or dev console; forgot/reset pages; verify banner
+- [x] Two-factor sign-in (TOTP + backup codes, trusted devices): setup with QR, challenge page, disable/regenerate with password
+- [x] Semantic asset search: embeddings indexed by the worker, cosine ranking with keyword boost and structured filters, keyword fallback, `pnpm assets:reindex`
+- [x] Fixed: keyboard shortcuts crashed on autofill's synthetic keydown events
+- [x] Tests: CLI provider (fake executable), image → Claude → email engine path, Gmail integration, multiple keys, account emails, two-factor with real TOTP codes, semantic search; E2E catalogue, local Claude and image runs
+
+### Not built (catalogue "coming soon")
+- [ ] Anthropic API, Gemini, Mistral, Ollama; Outlook, SMTP, Resend; Slack, Discord, Telegram, Twilio; Google Drive, Dropbox, S3; Notion, Google Sheets, Airtable; GitHub

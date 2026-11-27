@@ -25,6 +25,8 @@ export type ModelInfo = {
 export type ProviderInfo = {
   id: string;
   label: string;
+  /** Runs through a CLI on the server machine (personal use only), not an API key. */
+  local?: boolean;
   /** False until an execution adapter exists for this provider. */
   executable: boolean;
   models: ModelInfo[];
@@ -45,6 +47,19 @@ export const PROVIDERS: ProviderInfo[] = [
       // Image models: prompt (text input) $5 / 1M tokens, image output $30 / 1M tokens.
       { id: "gpt-image-2.6-sunburst", label: "GPT-Image-2.6 Sunburst", capability: "image", pricing: { input: 5, output: 30 } },
       { id: "gpt-image-2.6-flare", label: "GPT-Image-2.6 Flare", capability: "image", pricing: { input: 5, output: 30 } },
+    ],
+  },
+  {
+    // Personal use: your own signed-in Claude Code CLI on this machine (LOCAL_CLAUDE_CLI=on).
+    // Covered by your Claude subscription, so no per-token price is recorded.
+    id: "claude-cli",
+    label: "Claude (local CLI)",
+    executable: true,
+    local: true,
+    models: [
+      { id: "claude-opus-5-5", label: "Claude Opus 5.5", capability: "text" },
+      { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", capability: "text" },
+      { id: "claude-haiku-5-5", label: "Claude Haiku 5.5", capability: "text" },
     ],
   },
 ];

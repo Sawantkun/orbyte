@@ -18,6 +18,7 @@ import {
   Trash2,
   Upload,
   X,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -94,7 +95,7 @@ export function AssetLibrary({
   const [reload, setReload] = useState(0);
   // Results are tagged with the request they answer; "loading" is derived, not set in an effect.
   const requestKey = `${query}#${reload}`;
-  const [data, setData] = useState<{ key: string; items: AssetItem[]; cursor: string | null; error: string | null }>({ key: "", items: [], cursor: null, error: null });
+  const [data, setData] = useState<{ key: string; items: AssetItem[]; cursor: string | null; error: string | null; search?: string | null }>({ key: "", items: [], cursor: null, error: null });
   const loading = data.key !== requestKey;
   const { items, cursor, error } = data;
   const setItems = (fn: (prev: AssetItem[]) => AssetItem[]) => setData((d) => ({ ...d, items: fn(d.items) }));
@@ -121,7 +122,7 @@ export function AssetLibrary({
     const ctrl = new AbortController();
     apiFetch<AssetItem[]>(`/api/assets?${query}`, { signal: ctrl.signal })
       .then(({ data, meta }) => {
-        setData({ key: requestKey, items: data, cursor: (meta?.nextCursor as string | null) ?? null, error: null });
+        setData({ key: requestKey, items: data, cursor: (meta?.nextCursor as string | null) ?? null, error: null, search: (meta?.search as string | null) ?? null });
         setSelected(new Set());
       })
       .catch((e) => {
@@ -244,6 +245,16 @@ export function AssetLibrary({
       {/* Toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchBox value={params.get("q") ?? ""} onChange={(q) => setParam({ q: q || null })} />
+        {!loading && data.search && (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+            role="status"
+            title={data.search === "semantic" ? "Results ranked by meaning as well as words" : "Matching words in names, tags and prompts. Connect OpenAI in Integrations to also search by meaning."}
+          >
+            {data.search === "semantic" ? <Sparkles className="size-3.5 text-[var(--ob-accent-2)]" /> : null}
+            {data.search === "semantic" ? "Smart search" : "Keyword search"}
+          </span>
+        )}
         <Select value={params.get("sort") ?? "newest"} onValueChange={(v) => setParam({ sort: v === "newest" ? null : v })}>
           <SelectTrigger size="sm" className="w-32" aria-label="Sort">
             <SelectValue />
@@ -470,7 +481,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <div className="relative w-full max-w-xs">
       <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search names, tags, prompts…" aria-label="Search assets" className="h-8 pl-8" />
+      <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search, e.g. purple dashboard images" aria-label="Search assets" className="h-8 pl-8" />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import "server-only";
+import { semanticAssetIds } from "../embeddings";
+import { enqueueAssetIndex } from "../queue";
 import sharp from "sharp";
 import { Prisma, type AssetKind, type AssetSource } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
@@ -196,6 +198,7 @@ export async function createAsset(ownerId: string, input: NewAsset): Promise<Ass
       entityId: asset.id,
       metadata: { name: asset.name },
     });
+    void enqueueAssetIndex(asset.id);
     return toSummary(asset);
   } catch (e) {
     await Promise.allSettled([storage.delete(storageKey), thumbnailKey ? storage.delete(thumbnailKey) : Promise.resolve()]);
@@ -205,7 +208,9 @@ export async function createAsset(ownerId: string, input: NewAsset): Promise<Ass
 
 // ─── Read ────────────────────────────────────────────────────────────────────
 
-export async function listAssets(ownerId: string, q: ListAssetsQuery): Promise<{ items: AssetSummary[]; nextCursor: string | null }> {
+export type SearchMode = "semantic" | "keyword" | null;
+
+export async function listAssets(ownerId: string, q: ListAssetsQuery): Promise<{ items: AssetSummary[]; nextCursor: string | null; search: SearchMode }> {
   const and: Prisma.AssetWhereInput[] = [{ ownerId }];
   if (q.kinds?.length) and.push({ kind: { in: q.kinds } });
   if (q.collectionId) and.push({ collectionId: q.collectionId });
@@ -215,9 +220,12 @@ export async function listAssets(ownerId: string, q: ListAssetsQuery): Promise<{
   if (q.tag) and.push({ tags: { some: { tag: { name: q.tag.toLowerCase() } } } });
   if (q.from) and.push({ createdAt: { gte: q.from } });
   if (q.to) and.push({ createdAt: { lte: q.to } });
+  // Filters other than the text query, shared by keyword and semantic search.
+  const filters: Prisma.AssetWhereInput = { AND: [...and] };
+  let keyword: Prisma.AssetWhereInput | null = null;
   if (q.q) {
     const contains = { contains: q.q, mode: "insensitive" as const };
-    and.push({
+    keyword = {
       OR: [
         { name: contains },
         { description: contains },
@@ -225,7 +233,21 @@ export async function listAssets(ownerId: string, q: ListAssetsQuery): Promise<{
         { tags: { some: { tag: { name: contains } } } },
         { workflow: { name: contains } },
       ],
-    });
+    };
+    and.push(keyword);
+
+    // Semantic search: newest-first ordering is replaced by relevance; one page, no cursor.
+    if (q.sort === "newest" && !q.cursor) {
+      const limit = Math.max(q.limit, 40);
+      const keywordIds = new Set((await db.asset.findMany({ where: { AND: [filters, keyword] }, select: { id: true }, take: 500 })).map((a) => a.id));
+      const ids = await semanticAssetIds(ownerId, q.q, filters, keywordIds, limit);
+      if (ids) {
+        const rows = await db.asset.findMany({ where: { id: { in: ids }, ownerId }, include: summaryInclude });
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        const items = ids.flatMap((id) => (byId.has(id) ? [toSummary(byId.get(id)!)] : []));
+        return { items, nextCursor: null, search: "semantic" };
+      }
+    }
   }
   const orderBy: Prisma.AssetOrderByWithRelationInput[] =
     q.sort === "oldest"
@@ -244,7 +266,7 @@ export async function listAssets(ownerId: string, q: ListAssetsQuery): Promise<{
     ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
   });
   const items = rows.slice(0, q.limit).map(toSummary);
-  return { items, nextCursor: rows.length > q.limit ? items[items.length - 1].id : null };
+  return { items, nextCursor: rows.length > q.limit ? items[items.length - 1].id : null, search: q.q ? "keyword" : null };
 }
 
 export async function getAsset(ownerId: string, id: string): Promise<AssetDetail> {
@@ -330,6 +352,7 @@ export async function updateAsset(
       await tx.assetTagRelation.createMany({ data: ids.map((tagId) => ({ assetId: id, tagId })), skipDuplicates: true });
     }
   });
+  if (input.name !== undefined || input.description !== undefined || tags) void enqueueAssetIndex(id);
   return getAsset(ownerId, id);
 }
 
@@ -387,6 +410,7 @@ export async function bulkUpdate(ownerId: string, ids: string[], op: BulkAction)
       break;
     }
   }
+  if (op.action === "addTags" || op.action === "removeTags") for (const id of owned) void enqueueAssetIndex(id);
   return { affected: owned.length };
 }
 

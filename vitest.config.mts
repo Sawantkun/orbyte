@@ -39,6 +39,10 @@ export default defineConfig({
       STORAGE_PROVIDER: "local",
       STORAGE_LOCAL_DIR: path.join(os.tmpdir(), `orbyte-test-storage-${process.pid}`),
       MAX_UPLOAD_BYTES: String(2 * 1024 * 1024),
+      // Emails are rendered into an in-memory outbox, never sent.
+      MAIL_TRANSPORT: "json",
+      // Semantic search is exercised with a fake embedder in tests.
+      SEMANTIC_SEARCH: "off",
     },
   },
 });

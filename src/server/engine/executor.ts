@@ -12,8 +12,12 @@ import { createAsset } from "../assets/service";
 import { kindForMime } from "../assets/files";
 import type { ProviderResolver } from "../providers/types";
 import { NodeError, toNodeError } from "./errors";
-import { runHandler, type AnnotateAssets, type LogLevel, type SaveAsset } from "./handlers";
+import { runHandler, type AnnotateAssets, type LoadAttachment, type LoadImage, type LogLevel, type SaveAsset, type SendMail } from "./handlers";
 import type { LookupFn } from "./safe-http";
+import { getStorage } from "../storage";
+import { gmailMailer, type Mailer } from "../mail";
+import { resolveGmail } from "../integrations";
+import sharp from "sharp";
 
 /**
  * Executes one WorkflowExecution against its immutable WorkflowVersion.
@@ -38,6 +42,8 @@ export type EngineDeps = {
   backoffMs?: (attempt: number) => number;
   cancelPollMs?: number;
   httpLookup?: LookupFn;
+  /** Defaults to Gmail via the owner's integration. */
+  mailer?: Mailer;
 };
 
 type LogEntry = { ts: string; level: LogLevel; message: string; data?: Record<string, unknown> };
@@ -221,6 +227,47 @@ export async function runExecution(executionId: string, deps: EngineDeps): Promi
       return rows.length;
     };
 
+  // Images for vision models: owner's own image assets only, downscaled to ≤1568px JPEG/PNG.
+  const loadImage: LoadImage = async (assetId) => {
+    const a = await db.asset.findFirst({ where: { id: assetId, ownerId }, select: { name: true, kind: true, storageKey: true, sizeBytes: true } });
+    if (!a) throw new NodeError("INVALID_DATA", "Image: that image doesn't exist or isn't yours", false);
+    if (a.kind !== "IMAGE") throw new NodeError("INVALID_DATA", `Image: "${a.name}" isn't an image`, false);
+    if (a.sizeBytes > 40 * 1024 * 1024) throw new NodeError("INVALID_DATA", `Image: "${a.name}" is too large`, false);
+    const obj = await getStorage().get(a.storageKey);
+    if (!obj) throw new NodeError("INVALID_DATA", `Image: "${a.name}" is missing from storage`, false);
+    const chunks: Buffer[] = [];
+    for await (const c of obj.body) chunks.push(c as Buffer);
+    try {
+      const img = sharp(Buffer.concat(chunks), { limitInputPixels: 100_000_000 }).rotate().resize({ width: 1568, height: 1568, fit: "inside", withoutEnlargement: true });
+      const meta = await img.metadata();
+      const keepPng = meta.hasAlpha === true;
+      const data = keepPng ? await img.png().toBuffer() : await img.jpeg({ quality: 85 }).toBuffer();
+      return { data, mimeType: keepPng ? "image/png" : "image/jpeg", name: a.name };
+    } catch {
+      throw new NodeError("INVALID_DATA", `Image: "${a.name}" couldn't be read`, false);
+    }
+  };
+
+  const loadAttachment: LoadAttachment = async (assetId) => {
+    if (!/^[a-z0-9]{20,40}$/.test(assetId)) throw new NodeError("INVALID_DATA", "Attachments: not a file from your library", false);
+    const a = await db.asset.findFirst({ where: { id: assetId, ownerId }, select: { name: true, mimeType: true, storageKey: true, sizeBytes: true } });
+    if (!a) throw new NodeError("INVALID_DATA", "Attachments: that file doesn't exist or isn't yours", false);
+    if (a.sizeBytes > 20 * 1024 * 1024) throw new NodeError("INVALID_DATA", `Attachments: "${a.name}" is too large`, false);
+    const obj = await getStorage().get(a.storageKey);
+    if (!obj) throw new NodeError("INVALID_DATA", `Attachments: "${a.name}" is missing from storage`, false);
+    const chunks: Buffer[] = [];
+    for await (const c of obj.body) chunks.push(c as Buffer);
+    return { filename: a.name, content: Buffer.concat(chunks), contentType: a.mimeType };
+  };
+
+  const sendMail: SendMail = async (email, signal) => {
+    const cred = await resolveGmail(ownerId);
+    if (!cred) throw new NodeError("PROVIDER_NOT_CONFIGURED", "Connect Gmail in Integrations → Email to send emails.", false);
+    secrets.push(cred.pass);
+    const sent = await (deps.mailer ?? gmailMailer).send(cred, email, signal);
+    return { from: cred.user, ...sent };
+  };
+
   // ── Run one node with retries and a timeout ───────────────────────────────
   const runNode = async (node: WorkflowNode): Promise<void> => {
     const config = NODE_CONFIG_SCHEMAS[node.type].parse(node.data.config);
@@ -253,6 +300,9 @@ export async function runExecution(executionId: string, deps: EngineDeps): Promi
         const result = await Promise.race([
           runHandler(node.type, config, {
             ownerId,
+            loadImage,
+            loadAttachment,
+            sendMail,
             saveAsset: saveAssetFor(node, log),
             annotateAssets: annotateAssetsFor(log),
             node,

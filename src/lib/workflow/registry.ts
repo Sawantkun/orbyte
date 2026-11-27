@@ -1,7 +1,7 @@
 import { DEFAULT_IMAGE_MODEL, DEFAULT_TEXT_MODEL } from "@/config/ai-models";
 import type { NodeConfigMap, NodeType } from "./schema";
 
-export type NodeCategory = "Inputs" | "AI" | "Logic" | "Data" | "Outputs";
+export type NodeCategory = "Inputs" | "AI" | "Logic" | "Data" | "Actions" | "Outputs";
 
 export type NodeSpec<T extends NodeType = NodeType> = {
   type: T;
@@ -60,6 +60,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
       prompt: "",
       temperature: 0.7,
       maxOutputTokens: 1024,
+      image: "",
     }),
   }),
   ai_image: spec({
@@ -115,6 +116,17 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
     keyPrefix: "http",
     defaultConfig: () => ({ method: "GET", url: "https://", headers: [], body: "", timeoutMs: 10_000, responseType: "json" }),
   }),
+  send_email: spec({
+    type: "send_email",
+    label: "Send Email",
+    description: "Email someone from your connected Gmail (preview mode by default).",
+    category: "Actions",
+    hasInput: true,
+    outputs: ["out"],
+    outputFields: ["sent", "to", "subject", "body", "messageId"],
+    keyPrefix: "email",
+    defaultConfig: () => ({ to: "", subject: "", body: "", format: "text", attachments: "", preview: true }),
+  }),
   output: spec({
     type: "output",
     label: "Output",
@@ -128,7 +140,7 @@ export const NODE_SPECS: { [K in NodeType]: NodeSpec<K> } = {
   }),
 };
 
-export const NODE_CATEGORIES: NodeCategory[] = ["Inputs", "AI", "Logic", "Data", "Outputs"];
+export const NODE_CATEGORIES: NodeCategory[] = ["Inputs", "AI", "Logic", "Data", "Actions", "Outputs"];
 
 /** Next free key like "text_2", given the keys already in use. */
 export function nextNodeKey(prefix: string, taken: Iterable<string>): string {

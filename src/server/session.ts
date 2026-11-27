@@ -14,6 +14,7 @@ export type CurrentUser = {
   name: string;
   email: string;
   image: string | null;
+  emailVerified: boolean;
 };
 
 export const getSession = cache(async () => {
@@ -23,8 +24,8 @@ export const getSession = cache(async () => {
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const session = await getSession();
   if (!session) return null;
-  const { id, name, email, image } = session.user;
-  return { id, name, email, image: image ?? null };
+  const { id, name, email, image, emailVerified } = session.user;
+  return { id, name, email, image: image ?? null, emailVerified };
 }
 
 /** For pages and server actions: redirects to /login when signed out. */

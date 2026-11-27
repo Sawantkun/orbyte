@@ -23,9 +23,18 @@ How Orbyte protects users and their data. See `ARCHITECTURE.md` and `docs/decisi
 * **HTTP Request node (SSRF):** http/https only, no URL credentials. DNS answers are checked against private, loopback, link-local and metadata ranges at connect time (no socket reuse), every redirect is re-checked, and responses are capped by time and size.
 * Per-node timeouts, bounded concurrency, capped stored payloads (256 KB per value).
 
+## Local Claude CLI provider (personal use)
+* Switched on from the Integrations page and **owner-only**: the first account to switch it on owns it; other accounts can neither use nor claim it until it's switched off. `LOCAL_CLAUDE_CLI="off"` hard-disables it. It runs on the server machine's signed-in Claude subscription, so it is for a single person's own machine only: offering Claude subscription logins or limits to other users isn't allowed.
+* Images sent to it (or to OpenAI) must be the run owner's own image assets; they're decoded and re-encoded by sharp (max 1568 px) before leaving the server.
+* The CLI runs with `--tools ""` (no tools), no setting sources (no hooks, no CLAUDE.md), `--strict-mcp-config` (no MCP servers), no slash commands, no saved sessions, an empty temporary working directory, and an allow-listed environment, so app secrets never reach it. The prompt is sent on stdin, and output is size-capped. Cancel and timeouts kill the process.
+
+## Account security
+* **Password reset:** one-time links that expire after 1 hour; a reset signs out every other session and is recorded in the activity log. The request endpoint answers the same way whether or not the account exists, and emails are sent without awaiting so timing doesn't reveal it either. Rate limited (3 per 5 minutes).
+* **Email verification:** links expire after 24 hours. `REQUIRE_EMAIL_VERIFICATION=on` blocks sign-in until verified. The app nags unverified accounts only when account email is actually configured.
+* **Two-factor sign-in (TOTP):** set up from Settings → Security with password confirmation; turned on only after the first valid code. Secrets and backup codes are stored encrypted by Better Auth; backup codes are single-use; verification is rate limited (5 per minute) with lockout after repeated failures. Turning it off requires the password.
+* **Send Email node:** sends only from the run owner's connected Gmail (app password encrypted like API keys and redacted from run data); recipients are validated, at most 10; subjects can't inject headers; attachments must be the owner's own assets (max 5 files, 20 MB); new nodes default to preview mode.
+
 ## Known limitations
-* No email verification or password reset yet (needs an email provider).
-* No multi-factor authentication.
 * Styles allow `'unsafe-inline'` (React style attributes and UI libraries); scripts do not.
 
 ## Reporting

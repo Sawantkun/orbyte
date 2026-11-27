@@ -9,7 +9,8 @@ import { env } from "@/lib/env";
 import { db } from "@/lib/db";
 import { runExecution } from "@/server/engine/executor";
 import { defaultProviders } from "@/server/providers";
-import { EXECUTION_QUEUE, redisConnection, type ExecutionJob } from "@/server/queue";
+import { indexAsset } from "@/server/embeddings";
+import { EMBEDDING_QUEUE, EXECUTION_QUEUE, redisConnection, type EmbeddingJob, type ExecutionJob } from "@/server/queue";
 
 const worker = new Worker<ExecutionJob>(
   EXECUTION_QUEUE,
@@ -32,6 +33,14 @@ const worker = new Worker<ExecutionJob>(
   },
 );
 
+// Semantic-search indexing (best effort; searches fall back to keywords meanwhile).
+const embeddingWorker = new Worker<EmbeddingJob>(EMBEDDING_QUEUE, async (job) => ({ result: await indexAsset(job.data.assetId) }), {
+  connection: redisConnection(),
+  concurrency: 2,
+});
+embeddingWorker.on("failed", (job, err) => console.warn(`[worker] indexing ${job?.data.assetId} failed: ${err.message}`));
+embeddingWorker.on("error", (err) => console.error(`[worker] embeddings error: ${err.name} ${err.message}`));
+
 worker.once("ready", () => console.log(`[worker] ready — queue=${EXECUTION_QUEUE} concurrency=${env.WORKER_CONCURRENCY}`));
 worker.on("completed", (job, result) => console.log(`[worker] ${job.data.executionId} → ${(result as { status: string }).status}`));
 worker.on("failed", (job, err) => console.error(`[worker] ${job?.data.executionId} crashed: ${err.name}`));
@@ -52,7 +61,7 @@ async function shutdown(signal: string) {
   if (stopping) return;
   stopping = true;
   console.log(`[worker] ${signal} received, finishing in-flight jobs…`);
-  await worker.close(); // waits for active jobs
+  await Promise.all([worker.close(), embeddingWorker.close()]); // waits for active jobs
   await db.$disconnect();
   process.exit(0);
 }

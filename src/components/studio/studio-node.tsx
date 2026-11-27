@@ -9,6 +9,7 @@ import { NODE_ICONS, NODE_TONES } from "./node-icons";
 import { nodeSummary } from "./node-summary";
 import type { StudioNode } from "./store";
 import { useNodeIssues } from "./validation-context";
+import { useNodeRunStatus } from "./last-run";
 
 const RUN_STYLES = {
   PENDING: { icon: CircleDashed, ring: "border-border opacity-70", text: "text-muted-foreground" },
@@ -26,7 +27,9 @@ function StudioNodeView({ id, type, data, selected }: NodeProps<StudioNode>) {
   const Icon = NODE_ICONS[type];
   const issues = useNodeIssues(id);
   const errors = issues.filter((i) => i.severity === "error").length;
-  const run = data.runStatus ? RUN_STYLES[data.runStatus] : null;
+  const lastRun = useNodeRunStatus(id);
+  const runStatus = data.runStatus ?? lastRun;
+  const run = runStatus ? RUN_STYLES[runStatus] : null;
   const RunIcon = run?.icon;
 
   return (
@@ -53,8 +56,8 @@ function StudioNodeView({ id, type, data, selected }: NodeProps<StudioNode>) {
           <div className="truncate font-mono text-[10px] text-muted-foreground">{data.key}</div>
         </div>
         {RunIcon && (
-          <span className={cn("inline-flex", run.text)} title={data.runStatus} aria-label={`Status: ${data.runStatus}`}>
-            <RunIcon className={cn("size-4", data.runStatus === "RUNNING" && "animate-spin")} />
+          <span className={cn("inline-flex", run.text)} title={runStatus} aria-label={`Status: ${runStatus}`}>
+            <RunIcon className={cn("size-4", runStatus === "RUNNING" && "animate-spin")} />
           </span>
         )}
         {!run && errors > 0 && (

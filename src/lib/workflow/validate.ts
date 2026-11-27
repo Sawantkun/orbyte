@@ -30,10 +30,19 @@ const REQUIRED_TEXT: Partial<Record<NodeType, { field: string; label: string }[]
   prompt_template: [{ field: "template", label: "Template" }],
   condition: [{ field: "left", label: "Value to check" }],
   transform: [{ field: "input", label: "Input" }],
+  send_email: [
+    { field: "to", label: "To" },
+    { field: "subject", label: "Subject" },
+    { field: "body", label: "Body" },
+  ],
   output: [{ field: "value", label: "Value" }],
 };
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
+
+export const EMAIL = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]{2,}$/;
+export const MAX_RECIPIENTS = 10;
+export const splitRecipients = (to: string) => to.split(/[,;]/).map((r) => r.trim()).filter(Boolean);
 
 /**
  * Validate a workflow graph for publishing/execution. Pure and deterministic:
@@ -120,6 +129,16 @@ export function validateWorkflow(def: WorkflowDefinition): ValidationResult {
       if (!check.ok) err({ code: "UNSAFE_URL", message: `${node.data.label}: ${check.reason}.`, nodeId: node.id, field: "url" });
       else if (check.dynamicHost)
         warn({ code: "DYNAMIC_HOST", message: `${node.data.label}: host comes from a variable and will be checked at run time.`, nodeId: node.id, field: "url" });
+    }
+
+    if (node.type === "send_email") {
+      // Literal recipients are checked now; {{variables}} are checked when the workflow runs.
+      const to = (config.to as string).trim();
+      if (to && !to.includes("{{")) {
+        const bad = splitRecipients(to).filter((r) => !EMAIL.test(r));
+        if (bad.length) err({ code: "INVALID_EMAIL", message: `${node.data.label}: "${bad[0]}" isn't a valid email address.`, nodeId: node.id, field: "to" });
+        else if (splitRecipients(to).length > MAX_RECIPIENTS) err({ code: "TOO_MANY_RECIPIENTS", message: `${node.data.label}: at most ${MAX_RECIPIENTS} recipients.`, nodeId: node.id, field: "to" });
+      }
     }
 
     if (node.type === "transform") {

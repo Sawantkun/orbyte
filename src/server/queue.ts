@@ -7,6 +7,26 @@ export type ExecutionJob = { executionId: string };
 
 export const redisConnection = () => ({ url: env.REDIS_URL, maxRetriesPerRequest: null });
 
+export const EMBEDDING_QUEUE = `${env.EXECUTION_QUEUE_NAME}-embeddings`;
+export type EmbeddingJob = { assetId: string };
+
+let embeddingQueue: Queue<EmbeddingJob> | null = null;
+
+/**
+ * Ask the worker to (re)index an asset for semantic search. Best effort: search
+ * falls back to keywords for anything not indexed, so failures are only logged.
+ */
+export async function enqueueAssetIndex(assetId: string): Promise<void> {
+  if (env.SEMANTIC_SEARCH === "off") return;
+  try {
+    embeddingQueue ??= new Queue<EmbeddingJob>(EMBEDDING_QUEUE, { connection: redisConnection() });
+    // Same id while waiting collapses repeated edits into one job.
+    await embeddingQueue.add("index", { assetId }, { jobId: `asset-${assetId}`, attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true, removeOnFail: { age: 24 * 3600 } });
+  } catch (e) {
+    console.warn("[search] couldn't queue asset indexing", (e as Error).message);
+  }
+}
+
 let queue: Queue<ExecutionJob> | null = null;
 
 export function getExecutionQueue(): Queue<ExecutionJob> {

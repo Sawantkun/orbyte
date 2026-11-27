@@ -56,6 +56,8 @@ function authErrorMessage(code: string | undefined, fallback: string) {
       return "An account with this email already exists.";
     case "PASSWORD_TOO_SHORT":
       return "Password is too short.";
+    case "EMAIL_NOT_VERIFIED":
+      return "Verify your email first. We've sent you a new link.";
     case "TOO_MANY_REQUESTS":
       return "Too many attempts. Please wait a minute and try again.";
     default:
@@ -70,9 +72,14 @@ export function LoginForm({ next }: { next: string }) {
 
   async function onSubmit(values: LoginInput) {
     setError(null);
-    const { error } = await authClient.signIn.email({ email: values.email, password: values.password });
+    const { data, error } = await authClient.signIn.email({ email: values.email, password: values.password });
     if (error) {
       setError(authErrorMessage(error.code, "We couldn't sign you in. Please try again."));
+      return;
+    }
+    // Password was right; the account also needs an authenticator code.
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+      router.push(`/two-factor?next=${encodeURIComponent(next)}`);
       return;
     }
     router.replace(next);
@@ -86,6 +93,11 @@ export function LoginForm({ next }: { next: string }) {
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="email" placeholder="you@company.com" />
         <TextField control={form.control} name="password" label="Password" type="password" autoComplete="current-password" />
       </FieldGroup>
+      <p className="-mt-3 text-right text-sm">
+        <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground">
+          Forgot password?
+        </Link>
+      </p>
       <Button type="submit" className="h-9 w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting && <Loader2 className="animate-spin" />} Sign in
       </Button>

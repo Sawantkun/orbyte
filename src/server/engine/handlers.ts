@@ -2,6 +2,7 @@ import { findModel } from "@/config/ai-models";
 import { OperationError, evaluateCondition, runTransform } from "@/lib/engine/operations";
 import { resolveText, resolveValue, type Scope } from "@/lib/engine/resolve";
 import type { NodeConfigMap, NodeType, WorkflowNode } from "@/lib/workflow/schema";
+import { EMAIL, MAX_RECIPIENTS, splitRecipients } from "@/lib/workflow/validate";
 import type { ProviderResolver } from "../providers/types";
 import { NodeError } from "./errors";
 import { safeRequest, type LookupFn } from "./safe-http";
@@ -24,8 +25,23 @@ export type SaveAsset = (input: {
 /** Moves existing assets (from this execution) into a collection / merges metadata. */
 export type AnnotateAssets = (assetIds: string[], patch: { collectionId?: string | null; metadata?: Record<string, unknown> }) => Promise<number>;
 
+/** Loads an image asset owned by the run's owner, downscaled for model input. */
+export type LoadImage = (assetId: string) => Promise<{ data: Buffer; mimeType: string; name: string }>;
+
+/** Sends email through the owner's connected Gmail. */
+/** Loads an asset owned by the run's owner as an email attachment (size-limited). */
+export type LoadAttachment = (assetId: string) => Promise<{ filename: string; content: Buffer; contentType: string }>;
+
+export type SendMail = (
+  email: { to: string[]; subject: string; text: string; html?: string; attachments?: { filename: string; content: Buffer; contentType: string }[] },
+  signal: AbortSignal,
+) => Promise<{ from: string; messageId: string; accepted: string[]; rejected: string[] }>;
+
 export type HandlerContext = {
   ownerId: string;
+  loadImage: LoadImage;
+  loadAttachment: LoadAttachment;
+  sendMail: SendMail;
   saveAsset: SaveAsset;
   annotateAssets: AnnotateAssets;
   node: WorkflowNode;
@@ -46,12 +62,46 @@ export type HandlerResult = {
   usage?: { provider: string; model: string; inputTokens: number; outputTokens: number; imageCount?: number };
 };
 
+const SOURCE_LOG = {
+  user: "Using your connected API key",
+  platform: "Using the workspace API key",
+  "local-cli": "Using the local Claude CLI on this machine (your Claude subscription)",
+} as const;
+
 const IMAGE_SIZES = { "1:1": "1024x1024", "16:9": "1536x1024", "4:3": "1536x1024", "9:16": "1024x1536", "3:4": "1024x1536" } as const;
 
 /** Asset references produced by AI Image nodes: [{ assetId, ... }]. */
 function assetRefs(value: unknown): string[] {
   const list = Array.isArray(value) ? value : [value];
   return list.flatMap((v) => (v && typeof v === "object" && typeof (v as { assetId?: unknown }).assetId === "string" ? [(v as { assetId: string }).assetId] : []));
+}
+
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+
+/** Asset ids from an attachments value: an id, a list of ids, or generated-file references. */
+function attachmentRefs(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [value];
+  const ids = list.flatMap((v) => (typeof v === "string" ? v.split(/[\s,]+/).filter(Boolean) : assetRefs(v)));
+  return [...new Set(ids)];
+}
+
+/** Plain-text fallback for HTML email. */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "output";
@@ -97,9 +147,22 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
     const model = findModel(c.provider, c.model);
     if (!model || model.capability !== "text") throw new NodeError("UNKNOWN_MODEL", `Unknown model "${c.model}"`, false);
 
+    // Optional image: an image input (asset id) or a generated image ([{ assetId }]).
+    let images: { data: Buffer; mimeType: string }[] | undefined;
+    let imageName: string | undefined;
+    if (c.image.trim()) {
+      const ref = value(ctx, c.image, "Image");
+      const id = typeof ref === "string" ? ref.trim() : assetRefs(ref)[0];
+      if (!id) throw new NodeError("INVALID_DATA", "Image: no image was provided", false);
+      const img = await ctx.loadImage(id);
+      images = [{ data: img.data, mimeType: img.mimeType }];
+      imageName = img.name;
+      ctx.log("info", `Attached image "${img.name}"`, { bytes: img.data.length });
+    }
+
     const { provider, secrets, source } = await ctx.providers.text(c.provider, ctx.ownerId);
     ctx.addSecrets(secrets);
-    if (source) ctx.log("info", source === "user" ? "Using your connected API key" : "Using the workspace API key");
+    if (source) ctx.log("info", SOURCE_LOG[source]);
     ctx.log("info", `Calling ${c.provider} ${c.model}`, { promptChars: prompt.length, maxOutputTokens: c.maxOutputTokens });
     const result = await provider.generateText({
       model: c.model,
@@ -107,12 +170,13 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
       prompt,
       maxOutputTokens: c.maxOutputTokens,
       temperature: model.supportsTemperature ? c.temperature : undefined,
+      images,
       signal: ctx.signal,
     });
     if (result.truncated) ctx.log("warn", "Output stopped early (token limit reached)");
     ctx.log("info", "Received response", { outputChars: result.text.length, ...result.usage });
     return {
-      input: { model: c.model, system, prompt },
+      input: { model: c.model, system, prompt, ...(imageName ? { image: imageName } : {}) },
       output: { text: result.text },
       usage: { provider: c.provider, model: c.model, ...result.usage },
     };
@@ -125,7 +189,7 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
     if (!model || model.capability !== "image") throw new NodeError("UNKNOWN_MODEL", `Unknown model "${c.model}"`, false);
     const { provider, secrets, source } = await ctx.providers.image(c.provider, ctx.ownerId);
     ctx.addSecrets(secrets);
-    if (source) ctx.log("info", source === "user" ? "Using your connected API key" : "Using the workspace API key");
+    if (source) ctx.log("info", SOURCE_LOG[source]);
     const size = IMAGE_SIZES[c.aspectRatio];
     ctx.log("info", `Generating ${c.count} image(s) with ${c.provider} ${c.model}`, { size, quality: c.quality });
     const result = await provider.generateImages({ model: c.model, prompt, size, quality: c.quality, count: c.count, signal: ctx.signal });
@@ -190,6 +254,42 @@ const HANDLERS: { [K in NodeType]: Handler<K> } = {
       }
     }
     return { input: { method: c.method, url, headers, body }, output: { status: res.status, body: parsed, headers: res.headers } };
+  },
+
+  async send_email(c, ctx) {
+    const rawTo = text(ctx, c.to, "To");
+    const subject = text(ctx, c.subject, "Subject").replace(/[\r\n]+/g, " ").trim().slice(0, 300);
+    const body = text(ctx, c.body, "Body");
+    const to = splitRecipients(rawTo);
+    if (!to.length) throw new NodeError("INVALID_DATA", "To: no recipient", false);
+    const bad = to.find((r) => !EMAIL.test(r));
+    if (bad) throw new NodeError("INVALID_DATA", `To: "${bad.slice(0, 100)}" isn't a valid email address`, false);
+    if (to.length > MAX_RECIPIENTS) throw new NodeError("INVALID_DATA", `To: at most ${MAX_RECIPIENTS} recipients`, false);
+    if (!subject) throw new NodeError("INVALID_DATA", "Subject is empty", false);
+    if (!body.trim()) throw new NodeError("INVALID_DATA", "Body is empty", false);
+
+    // Attachments: asset ids or references to generated files.
+    const ids = c.attachments.trim() ? attachmentRefs(value(ctx, c.attachments, "Attachments")) : [];
+    if (c.attachments.trim() && !ids.length) throw new NodeError("INVALID_DATA", "Attachments: no files were provided", false);
+    if (ids.length > MAX_ATTACHMENTS) throw new NodeError("INVALID_DATA", `Attachments: at most ${MAX_ATTACHMENTS} files`, false);
+    const files = [];
+    for (const assetId of ids) files.push(await ctx.loadAttachment(assetId));
+    const total = files.reduce((n, f) => n + f.content.length, 0);
+    if (total > MAX_ATTACHMENT_BYTES) throw new NodeError("INVALID_DATA", `Attachments: ${Math.ceil(total / 1048576)} MB is over Gmail's ${MAX_ATTACHMENT_BYTES / 1048576} MB limit`, false);
+
+    const html = c.format === "html" ? body : undefined;
+    const plain = html ? htmlToText(html) : body;
+    const attachments = files.map((f) => ({ name: f.filename, bytes: f.content.length }));
+    const input = { to, subject, body, format: c.format, attachments, preview: c.preview };
+
+    if (c.preview) {
+      ctx.log("info", `Preview only: email to ${to.join(", ")} was not sent (turn off Preview to send)`, attachments.length ? { attachments: attachments.length } : undefined);
+      return { input, output: { sent: false, to, subject, body, attachments, messageId: null } };
+    }
+    const sent = await ctx.sendMail({ to, subject, text: plain, ...(html ? { html } : {}), ...(files.length ? { attachments: files } : {}) }, ctx.signal);
+    ctx.log("info", `Sent from ${sent.from} to ${sent.accepted.join(", ") || to.join(", ")}`, { messageId: sent.messageId });
+    if (sent.rejected.length) ctx.log("warn", `Gmail rejected: ${sent.rejected.join(", ")}`);
+    return { input, output: { sent: true, to, subject, body, attachments, messageId: sent.messageId } };
   },
 
   async output(c, ctx) {

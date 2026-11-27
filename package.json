@@ -20,7 +20,8 @@
     "postinstall": "prisma generate",
     "worker": "tsx watch --conditions=react-server --env-file=.env worker/index.ts",
     "worker:start": "tsx --conditions=react-server worker/index.ts",
-    "secrets:rotate": "tsx --conditions=react-server --env-file=.env scripts/rotate-secrets.ts"
+    "secrets:rotate": "tsx --conditions=react-server --env-file=.env scripts/rotate-secrets.ts",
+    "assets:reindex": "tsx --conditions=react-server --env-file=.env scripts/reindex-assets.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1166.0",
@@ -39,7 +40,9 @@
     "ioredis": "6.0.0",
     "lucide-react": "^1.78.0",
     "next": "16.4.6",
+    "nodemailer": "10.4.1",
     "pg": "^8.23.1",
+    "qrcode": "1.5.4",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -60,6 +63,7 @@
     "@types/busboy": "1.5.5",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.3.0",

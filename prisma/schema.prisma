@@ -23,13 +23,15 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  emailVerified Boolean  @default(false)
-  image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  /// Authenticator-app two-factor sign-in (Better Auth two-factor plugin).
+  twoFactorEnabled Boolean? @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   sessions        Session[]
   accounts        Account[]
@@ -43,8 +45,42 @@ model User {
   usageRecords    UsageRecord[]
   activityLogs    ActivityLog[]
   promptTemplates PromptTemplate[]
+  twoFactors      TwoFactor[]
 
   @@map("user")
+}
+
+/// Semantic-search vector for an asset (see ADR-0003). Stored as a plain
+/// float array and ranked in the app; moves to a pgvector column when the
+/// extension is available.
+model AssetEmbedding {
+  assetId     String   @id
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  ownerId     String
+  model       String
+  vector      Float[]
+  /// Hash of the text that was embedded, so unchanged assets aren't re-embedded.
+  contentHash String
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("asset_embedding")
+}
+
+/// TOTP secret and backup codes (both encrypted by Better Auth).
+model TwoFactor {
+  id                      String    @id @default(cuid())
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
 }
 
 model Session {
@@ -312,8 +348,9 @@ model Asset {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
-  tags    AssetTagRelation[]
-  coverOf AssetCollection[]  @relation("CollectionCover")
+  tags      AssetTagRelation[]
+  coverOf   AssetCollection[]  @relation("CollectionCover")
+  embedding AssetEmbedding?
 
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([ownerId, kind])
@@ -400,6 +437,8 @@ model Integration {
   /// Last 4 characters only, for display.
   secretHint      String
   status          IntegrationStatus @default(UNVERIFIED)
+  /// The credential workflows use for this provider (one per owner and provider).
+  isDefault       Boolean           @default(false)
   lastValidatedAt DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -429,6 +468,16 @@ model UsageRecord {
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([executionId])
   @@map("usage_record")
+}
+
+/// Instance-wide settings that belong to no single user's data, e.g. which
+/// account owns the personal-use local Claude CLI provider.
+model InstanceSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("instance_setting")
 }
 
 model ActivityLog {

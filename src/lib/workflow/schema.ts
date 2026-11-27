@@ -22,6 +22,7 @@ export const NODE_TYPES = [
   "condition",
   "transform",
   "http_request",
+  "send_email",
   "output",
 ] as const;
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -34,7 +35,7 @@ const keyValue = z.object({ key: text(200), value: text(4000) });
 
 // ─── Per-node configuration ──────────────────────────────────────────────────
 
-export const INPUT_FIELD_TYPES = ["text", "number", "boolean", "json", "file"] as const;
+export const INPUT_FIELD_TYPES = ["text", "number", "boolean", "json", "file", "image"] as const;
 
 export const inputConfig = z.object({
   fieldName: identifier,
@@ -51,6 +52,8 @@ export const aiTextConfig = z.object({
   prompt: text(),
   temperature: z.number().min(0).max(2).default(0.7),
   maxOutputTokens: z.number().int().min(1).max(32_000).default(1024),
+  /** Optional image for the model to look at, e.g. "{{photo}}" (an image input or generated image). */
+  image: text(500).default(""),
 });
 
 export const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4"] as const;
@@ -121,6 +124,21 @@ export const httpRequestConfig = z.object({
   responseType: z.enum(["json", "text"]).default("json"),
 });
 
+/**
+ * Sends a plain-text email through the user's connected Gmail. `preview` (the
+ * default) renders the email without sending it, so workflows can be tested safely.
+ */
+export const sendEmailConfig = z.object({
+  to: text(1000),
+  subject: text(300),
+  body: text(),
+  /** "html" sends the body as HTML with a plain-text fallback. */
+  format: z.enum(["text", "html"]).default("text"),
+  /** Files to attach, e.g. "{{photo}}" or "{{image_1.images}}" (assets from your library). */
+  attachments: text(500).default(""),
+  preview: z.boolean().default(true),
+});
+
 export const OUTPUT_FORMATS = ["text", "json", "file"] as const;
 
 export const outputConfig = z.object({
@@ -140,6 +158,7 @@ export const NODE_CONFIG_SCHEMAS = {
   condition: conditionConfig,
   transform: transformConfig,
   http_request: httpRequestConfig,
+  send_email: sendEmailConfig,
   output: outputConfig,
 } as const satisfies Record<NodeType, z.ZodType>;
 

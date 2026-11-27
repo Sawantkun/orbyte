@@ -60,8 +60,35 @@ describe("integrations API", () => {
     expect(rejected.status).toBe(422);
     expect((await rejected.json()).error.code).toBe("KEY_REJECTED");
     expect((await connect(cookie, { provider: "anthropic", secret: "sk-ant-whatever-0123456789" })).status).toBe(400);
-    expect((await connect(cookie, { provider: "openai", secret: GOOD })).status).toBe(201);
-    expect((await connect(cookie, { provider: "openai", secret: GOOD })).status).toBe(409);
+    expect((await connect(cookie, { provider: "openai", secret: GOOD, label: "Work" })).status).toBe(201);
+    expect((await connect(cookie, { provider: "openai", secret: GOOD, label: "work" })).status).toBe(409); // names are unique, ignoring case
+  });
+
+  it("supports several keys per provider with one default that workflows use", async () => {
+    const { cookie, id: ownerId } = await signedInUser();
+    const first = (await json(await connect(cookie, { provider: "openai", secret: GOOD }))).data;
+    const second = (await json(await connect(cookie, { provider: "openai", secret: GOOD }))).data;
+    expect(first).toMatchObject({ label: "Default", isDefault: true });
+    expect(second).toMatchObject({ label: "Key 2", isDefault: false });
+    await db.integration.update({ where: { id: second.id }, data: { updatedAt: new Date(Date.now() + 60_000) } });
+    expect(await resolveUserSecret(ownerId, "openai")).toMatchObject({ integrationId: first.id }); // default wins over newest
+
+    const patch = (id: string, body: unknown) => item.PATCH(request(`/api/integrations/${id}`, { method: "PATCH", cookie, body }), params({ id }));
+    const all = (await json(await patch(second.id, { isDefault: true }))).data;
+    expect(all.filter((i: { isDefault: boolean }) => i.isDefault).map((i: { id: string }) => i.id)).toEqual([second.id]);
+    expect(await resolveUserSecret(ownerId, "openai")).toMatchObject({ integrationId: second.id });
+
+    expect((await json(await patch(first.id, { label: "Personal" }))).data.label).toBe("Personal");
+    expect((await patch(first.id, { label: "key 2" })).status).toBe(409);
+    expect((await patch(first.id, { secret: GOOD, isDefault: true })).status).toBe(400); // one change at a time
+
+    // Deleting the default promotes the remaining key.
+    await item.DELETE(request(`/api/integrations/${second.id}`, { method: "DELETE", cookie }), params({ id: second.id }));
+    expect(await db.integration.findUniqueOrThrow({ where: { id: first.id } })).toMatchObject({ isDefault: true });
+
+    // The database allows only one default per provider.
+    const third = await createIntegration(ownerId, { provider: "openai", secret: GOOD, label: "Third" }, async () => "ACTIVE");
+    await expect(db.integration.update({ where: { id: third.id }, data: { isDefault: true } })).rejects.toThrow();
   });
 
   it("replaces, revalidates and deletes; other users get 404", async () => {

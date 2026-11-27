@@ -40,7 +40,17 @@ export class OpenAIProvider implements TextProvider, ImageProvider {
   async generateText(req: TextGenerationRequest): Promise<TextGenerationResult> {
     const body: Record<string, unknown> = {
       model: req.model,
-      input: req.prompt,
+      input: req.images?.length
+        ? [
+            {
+              role: "user",
+              content: [
+                ...req.images.map((img) => ({ type: "input_image", image_url: `data:${img.mimeType};base64,${img.data.toString("base64")}` })),
+                { type: "input_text", text: req.prompt },
+              ],
+            },
+          ]
+        : req.prompt,
       max_output_tokens: req.maxOutputTokens,
       store: false,
     };

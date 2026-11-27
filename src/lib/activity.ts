@@ -1,6 +1,7 @@
 /** Human-readable labels for ActivityLog actions. Unknown actions fall back to the raw name. */
 const LABELS: Record<string, string> = {
   "account.created": "Created your Orbyte account",
+  "account.password_reset": "Reset your password",
   "profile.updated": "Updated your profile",
   "password.changed": "Changed your password",
   "workflow.created": "Created a workflow",

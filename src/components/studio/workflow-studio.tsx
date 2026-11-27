@@ -223,6 +223,8 @@ function StudioLayout({ workflow }: { workflow: StudioWorkflow }) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const modKey = e.metaKey || e.ctrlKey;
+      // `key` can be undefined (e.g. Chrome autofill dispatches synthetic keydown events).
+      if (typeof e.key !== "string") return;
       const key = e.key.toLowerCase();
       if (modKey && key === "s") {
         e.preventDefault();

@@ -56,6 +56,11 @@ test("workflow studio: no console errors and no serious a11y violations", async 
   await page.getByRole("link", { name: "Audit flow" }).click();
   await expect(page.locator(".react-flow")).toBeVisible();
   await page.getByTestId("node-text_1").click();
+  // Chrome autofill dispatches keydown events without a `key`; shortcuts must ignore them.
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("keydown"));
+    document.body.dispatchEvent(new Event("keydown", { bubbles: true }));
+  });
   expect(problems).toEqual([]);
   expect(await axe(page)).toEqual([]);
 });
